@@ -26,7 +26,7 @@ Cómo usar esta plantilla:
 
 [Metodología] El agente estima su probabilidad de ganar (equity) mediante simulación Monte Carlo contra rangos de manos inferidos del comportamiento de cada rival, y la compara con las pot odds para decidir entre retirarse, pagar o subir. Se construyeron tres versiones y se compararon en las mismas mesas (números aleatorios comunes) con el laboratorio del kit, además de una búsqueda de parámetros por coordenadas.
 
-[Resultados] [PENDIENTE: versión final] clasificó en [PENDIENTE] % de 200 mesas contra cinco `Heuristic` (plantilla `MiAgente`: 53,0 % ✔), con [PENDIENTE] ms por decisión y 0 timeouts. Agregar reglas de posición, tipos de rival y ajuste de final de mesa (v2) redujo la clasificación en ~3 puntos de forma consistente en dos experimentos independientes ✔.
+[Resultados] La versión final (v1) clasificó en 69,5 % de 200 mesas contra cinco `Heuristic` ✔ (plantilla `MiAgente`: 53,0 % ✔; cada `Heuristic`: 43,0–51,0 %), ganó 74,0 % de los mano a mano contra `Heuristic` ✔, con 5,84 ms por decisión en promedio, 55,5 ms como máximo y 0 timeouts ✔. Agregar reglas de posición, tipos de rival y ajuste de final de mesa (v2) redujo la clasificación en ~3 puntos de forma consistente en dos experimentos independientes ✔.
 
 [Conclusión] [Una frase: p. ej. "Un modelo simple bien calibrado superó a uno con más reglas; medir con margen de error fue decisivo para elegir."]
 
@@ -112,10 +112,12 @@ Todo dentro de `try/catch` con respaldo legal.
 **Tabla 1.** Bench contra cinco `Heuristic` (200 mesas de 30 manos).
 | Agente | Clasif. % | Gana % | Puesto prom. | Stack prom. | ms/dec | ms máx | Timeouts | Errores |
 |---|---|---|---|---|---|---|---|---|
-| jackpot (final) | [PENDIENTE] | | | | | | | |
-| jackpot v1 ✔ | 69,0 | 16,0 | 2,92 | 10.274 | 4,60 | 39,7 | 0 | 0 |
+| jackpot final (= v1), corrida final ✔ | 69,5 | 17,0 | 2,85 | 10.244 | 5,84 | 32,8 | 0 | 0 |
+| jackpot v1, corrida inicial ✔ | 69,0 | 16,0 | 2,92 | 10.274 | 4,60 | 39,7 | 0 | 0 |
 | MiAgente ✔ | 53,0 | 11,5 | 3,39 | 10.064 | 9,48 | 65,5 | 0 | 0 |
-<!-- Nota: en cada bench los Heuristic quedaron entre 40,0 % y 54,0 % de clasificación. -->
+<!-- Nota: en cada bench los Heuristic quedaron entre 40,0 % y 54,0 % de clasificación.
+     Margen aproximado del 95 % con 200 mesas: ±1,96·√(p(1−p)/200) ≈ ±6,4 pts para p = 69,5 %. -->
+<!-- Las dos corridas de v1 (69,0 y 69,5) muestran la variación entre corridas: menor que el margen. -->
 
 **Tabla 2.** Comparación en las mismas mesas (laboratorio `comparar`). Clasificación % (± 95 %).
 | Agente | 600 mesas (semilla 1000) ✔ | 800 mesas (semilla 900000) ✔ |
@@ -137,7 +139,21 @@ Todo dentro de `try/catch` con respaldo legal.
 
 **Búsqueda de parámetros (v2) ✔.** 11 parámetros probados en 95,4 min; ningún cambio superó la confirmación (mayor z combinado: 1,88 en "Implícitas"). [Opcional: Figura 1 con las diferencias de cada candidato y sus barras de error.]
 
-**Tabla 4.** Bench heads-up y mesa mixta (versión final). [PENDIENTE]
+**Tabla 4.** Bench de la versión final en heads-up y en mesa mixta (200 mesas cada uno) ✔.
+| Mesa | Agente | Clasif. % | Gana % | Puesto prom. | Stack prom. | ms/dec | ms máx | Timeouts | Errores |
+|---|---|---|---|---|---|---|---|---|---|
+| Heads-up (vs 1 Heuristic) | jackpot | 74,0 | 74,0 | 1,26 | 10.235 | 3,78 | 23,9 | 0 | 0 |
+| | Heuristic | 26,0 | 26,0 | 1,74 | 9.765 | — | — | 0 | 0 |
+| Mixta (Heuristic×2, Station, Raiser, Random) | jackpot | 78,5 | 30,0 | 2,44 | 11.218 | 6,20 | 55,5 | 0 | 0 |
+| | Heuristic (mejor de los dos) | 74,5 | 24,5 | 2,62 | 11.006 | — | — | 0 | 0 |
+| | Station | 36,5 | 11,5 | 4,00 | 9.326 | — | — | 0 | 0 |
+| | Raiser | 34,5 | 10,0 | 4,13 | 9.186 | — | — | 0 | 0 |
+| | Random | 3,5 | 0,0 | 5,17 | 8.290 | — | — | 0 | 0 |
+<!-- En heads-up clasifica solo 1, por eso Clasif% = Gana%.
+     En la mesa mixta, jackpot (78,5) vs Heuristic (74,5): diferencia de 4 pts, MENOR que el margen (~±6 con 200 mesas) →
+     "sin diferencia demostrada" en clasificación; sí gana más primeros lugares (30,0 vs 24,5) y más fichas. -->
+
+**Tiempo ✔.** En las tres mesas: ms/dec entre 3,78 y 6,20; ms máx 55,5 (< 300 del kit y < 1000 del torneo); 0 timeouts y 0 errores.
 
 ---
 
@@ -148,7 +164,8 @@ Todo dentro de `try/catch` con respaldo legal.
 - **Más reglas no fue mejor.** [La hipótesis era que posición + tipos de rival + ajuste final (v2) mejorarían. Se refutó: v2 rindió ~3 puntos menos que v1 en dos experimentos independientes; combinados, z ≈ 3,6. Posibles causas: con 30 manos hay pocos datos para clasificar a un rival, las etiquetas se equivocan y las reglas fijas por tipo sobre-reaccionan.]
 - **Búsqueda de parámetros.** [Ningún cambio se confirmó: el agente está en una zona plana de los parámetros; las mejoras aparentes de la primera prueba (+1,5 a +2,3) eran ruido. Esto muestra por qué hace falta confirmar con mesas nuevas.]
 - **v3.** Corregir el contador de retiradas dio +0,9 ± 1,8 pts sobre v1 (800 mesas ✔): sin diferencia demostrada; se conservó v1 por tener más mediciones. [Interpreta: el c-bet afecta pocas manos.]
-- **Tiempo.** [ms máx muy por debajo de 300 ms y 1000 ms; margen para la Arena en Unity/Mono, que es más lenta.]
+- **Mesa mixta.** Contra rivales "explotables" (Station, Raiser, Random) jackpot y los Heuristic clasifican casi siempre; la ventaja de jackpot sobre Heuristic en clasificación (78,5 vs 74,5) no supera el margen, aunque sí gana más mesas (30,0 vs 24,5 %). [Interpreta.]
+- **Tiempo.** ms máx 55,5 ms en el peor bench: muy por debajo de 300 ms y 1000 ms; margen para la Arena en Unity/Mono, que es más lenta.
 - **Limitaciones.** Rivales de práctica distintos a los del torneo; Chen es una aproximación del valor de las manos; no se modelan farol del rival ni odds implícitas exactas.
 
 ---

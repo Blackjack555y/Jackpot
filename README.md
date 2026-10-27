@@ -101,11 +101,17 @@ El laboratorio **no se entrega**: puede usar hilos, archivos, etc. Está en `Ent
 
 Clasificación en las 800 mesas (semilla 900000): v3 81,9 % · v1 81,0 % · v2 78,6 % · MiAgente 74,5 % · Heuristic 69,2 % · Rival 68,6 %.
 
-Bench contra 5 Heuristic (200 mesas), v1: Clasif 69,0 % · Gana 16,0 % · 4,60 ms/dec · ms máx 39,7 · 0 timeouts · 0 errores.
-Plantilla MiAgente en el mismo bench: Clasif 53,0 %.
-
 **Decisión:** se entrega la v1 como `jackpot.cs` (la más simple entre las que rinden mejor).
-Pendiente: repetir los 3 bench de la sección 3 con el `jackpot.cs` final y pasarlos al informe.
+
+**Bench finales de `jackpot.cs`** (200 mesas cada uno, todos con 0 timeouts y 0 errores):
+
+| Mesa | Clasif% | Gana% | RankProm | StackProm | ms/dec | ms máx | Referencia |
+|---|---|---|---|---|---|---|---|
+| vs Heuristic×5 (obligatorio) | 69,5 | 17,0 | 2,85 | 10.244 | 5,84 | 32,8 | Heuristic 43,0–51,0 % · MiAgente 53,0 % |
+| Heads-up vs Heuristic | 74,0 | 74,0 | 1,26 | 10.235 | 3,78 | 23,9 | Heuristic 26,0 % |
+| Mixta (Heuristic×2, Station, Raiser, Random) | 78,5 | 30,0 | 2,44 | 11.218 | 6,20 | 55,5 | mejor Heuristic 74,5 % (sin diferencia demostrada) |
+
+Margen aproximado con 200 mesas: ±6 pts. Checklist de entrega del kit: **cumplido** (`check` OK, 0 timeouts, 0 errores, ms máx < 300).
 
 ---
 
