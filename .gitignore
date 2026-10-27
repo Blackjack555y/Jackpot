@@ -5,3 +5,7 @@ obj/
 TestResults/
 dist/
 *.zip
+Kit_AgentsPoker_SDK/Entrenamiento/liga*/estado.bin
+Kit_AgentsPoker_SDK/Entrenamiento/liga*/estado.bin.tmp
+Kit_AgentsPoker_SDK/Entrenamiento/liga*/STOP
+Kit_AgentsPoker_SDK/Entrenamiento/liga*/consola.txt

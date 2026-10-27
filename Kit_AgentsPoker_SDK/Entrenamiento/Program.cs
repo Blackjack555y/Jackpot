@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,9 @@ using AgentsPoker.Core.Agents;
 //   .\entrenar.cmd 300             igual, 300 s por prueba
 //   .\entrenar.cmd comparar 2000   jackpot vs jackpot_v1 vs MiAgente en LAS MISMAS 2000 mesas
 //   .\entrenar.cmd ajustar 1500    búsqueda de parámetros de jackpot_v2 (1500 mesas por candidato)
+//   .\entrenar.cmd selfplay 5000   autoentrenamiento de jackpot_q (Q-learning + UCB + self-play) hasta 5000 mesas
+//   .\entrenar.cmd selfplay infinito   igual, sin tope: se detiene solo al llegar a la meseta (o con liga/STOP)
+//   Opciones: --hilos N (núcleos a usar), --tanda 500, --validacion 600, --dir liga
 //
 // Aquí sí se usan hilos (Parallel.For): este proyecto NO se entrega, y cada mesa crea sus propios agentes.
 // =====================================================================================================
@@ -42,6 +46,14 @@ var pool = new List<(string Nombre, Func<IPokerAgent> Crear)>
 };
 
 string modo = args.Length > 0 ? args[0].ToLowerInvariant() : "";
+var paralelo = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Opcion("--hilos", Environment.ProcessorCount)) };
+
+if (modo == "selfplay")
+{
+    AutoEntrenar();
+    return;
+}
+
 if (modo == "comparar")
 {
     int mesas = args.Length > 1 ? int.Parse(args[1]) : 1000;
@@ -53,6 +65,7 @@ if (modo == "comparar")
         ("jackpot_v1", () => new jackpot_v1()),
         ("jackpot_v2", () => new jackpot_v2()),
         ("jackpot_v3", () => new jackpot_v3()),
+        ("jackpot_q", () => new jackpot_q()),
         ("MiAgente", () => new MiAgente()),
         ("Rival", () => new Rival()),
         ("Heuristic", () => new SimpleHeuristicAgent()),
@@ -216,7 +229,7 @@ List<(int Semilla, int[] Rivales, int MiAsiento)> GenerarMesas(int cuantas, int 
 {
     var clasif = new int[mesas.Count];
     int gana = 0; long rank = 0, stack = 0;
-    Parallel.For(0, mesas.Count, t =>
+    Parallel.For(0, mesas.Count, paralelo, t =>
     {
         var (semilla, riv, miAsiento) = mesas[t];
         int tam = riv.Length + 1;
@@ -247,6 +260,262 @@ List<(int Semilla, int[] Rivales, int MiAsiento)> GenerarMesas(int cuantas, int 
     m /= n;
     double var = Math.Max(0, m2 / n - m * m);
     return (m, Math.Sqrt(var / n));
+}
+
+int Opcion(string nombre, int porDefecto)
+{
+    for (int i = 0; i < args.Length - 1; i++)
+        if (args[i] == nombre) return int.Parse(args[i + 1]);
+    return porDefecto;
+}
+
+string OpcionTexto(string nombre, string porDefecto)
+{
+    for (int i = 0; i < args.Length - 1; i++)
+        if (args[i] == nombre) return args[i + 1];
+    return porDefecto;
+}
+
+// ======================================= AUTOENTRENAMIENTO (self-play) =======================================
+// Un solo "cerebro" (tabla Q compartida) juega en 1-3 asientos de cada mesa contra el salón de la fama (tablas campeonas
+// anteriores congeladas) y anclas fijas (pool). La recompensa es la ganancia neta de cada mano en ciegas grandes, que
+// suma cero en la mesa. Explora con UCB, aprende con Q-learning (alfa = 1/N) y solo cambia de campeón si gana en una
+// validación separada (solo anclas, semillas que nunca se entrenan) y lo confirma en mesas nuevas (z combinado > 2).
+void AutoEntrenar()
+{
+    bool infinito = args.Length > 1 && args[1].ToLowerInvariant() == "infinito";
+    int objetivo = !infinito && args.Length > 1 && int.TryParse(args[1], out var om) ? om : 5000;
+    int tanda = Opcion("--tanda", 500);
+    int nVal = Opcion("--validacion", 600);
+    string dir = Path.Combine("Entrenamiento", OpcionTexto("--dir", "liga"));
+    const double cUcb = 3.0;        // peso de la exploración UCB (en ciegas grandes)
+    const int nMin = 30;            // visitas mínimas para que la tabla pueda corregir a la v1
+    const double margenBb = 0.3;    // ventaja mínima (ciegas grandes) para corregir
+    const int maxSalon = 5, paciencia = 6, ventanaMeseta = 10;
+    Directory.CreateDirectory(dir);
+    string archEstado = Path.Combine(dir, "estado.bin"), archHist = Path.Combine(dir, "historial.csv");
+    string archCampeon = Path.Combine(dir, "campeon_tabla.txt"), archStop = Path.Combine(dir, "STOP");
+    if (File.Exists(archStop)) File.Delete(archStop);
+
+    var e = File.Exists(archEstado) ? EstadoLiga.Cargar(archEstado) : new EstadoLiga();
+    if (!File.Exists(archHist))
+        File.WriteAllText(archHist, "tanda,mesas,minutos,clasif_entrenamiento,val_candidato,val_campeon,dif,mas_menos,z,aceptado,correcciones,estados_visitados\n");
+    Console.WriteLine($"Autoentrenamiento {(infinito ? "INDEFINIDO (para en la meseta o con " + archStop + ")" : $"hasta {objetivo} mesas")}" +
+                      $" | tanda {tanda} | validación {nVal} | {paralelo.MaxDegreeOfParallelism} hilos | carpeta {dir}");
+    if (e.Tandas > 0) Console.WriteLine($"Retomando: {e.Tandas} tandas, {e.Mesas} mesas, salón de la fama {e.Salon.Count}, campeón {(e.Campeon == null ? "v1" : "tabla")}");
+
+    var valMesas = GenerarMesas(nVal, 777_777);                 // validación fija: nunca se usa para entrenar
+    int[] valCampeon = Evaluar(() => new jackpot_q(e.Campeon), valMesas).Clasif;
+    var reloj = Stopwatch.StartNew();
+
+    while (true)
+    {
+        if (!infinito && e.Mesas >= objetivo) { Console.WriteLine("Fin: se alcanzó el tope de mesas."); break; }
+        if (File.Exists(archStop)) { Console.WriteLine("Fin: archivo STOP."); break; }
+
+        // ---- 1. Entrenamiento: una tanda de mesas mixtas (semilla según la tanda: reproducible y retomable) ----
+        var rng = new Random(1_000_003 + 7919 * e.Tandas);
+        var defs = new List<(int Semilla, int[] Tipos)>();
+        for (int t = 0; t < tanda; t++)
+        {
+            double u = rng.NextDouble();
+            int tam = u < 0.6 ? 6 : u < 0.8 ? 4 : 3;
+            int aprendices = rng.Next(1, Math.Min(3, tam - 1) + 1);
+            var tipos = new int[tam];                                // -1 aprendiz, -2-k salón k, >= 0 ancla del pool
+            for (int s = 0; s < tam; s++)
+                tipos[s] = s < aprendices ? -1 : e.Salon.Count > 0 && rng.NextDouble() < 0.25 ? -2 - rng.Next(e.Salon.Count) : rng.Next(pool.Count);
+            defs.Add((rng.Next(), tipos.OrderBy(_ => rng.Next()).ToArray()));
+        }
+        var transiciones = new List<jackpot_q.Transicion>[tanda];
+        var clasif = new int[tanda];
+        var asientos = new int[tanda];
+        var q = e.Q; var n = e.N;                                   // solo lectura durante la tanda
+        Parallel.For(0, tanda, paralelo, t =>
+        {
+            var (semilla, tipos) = defs[t];
+            var mesa = new PokerTable(GameConfig.Training(seed: semilla));
+            var ap = new List<(jackpot_q Agente, int Asiento, string Nombre)>();
+            for (int s = 0; s < tipos.Length; s++)
+            {
+                if (tipos[s] == -1)
+                {
+                    var ag = new jackpot_q(q, n, cUcb, semilla ^ (s * 7919 + 17));
+                    ap.Add((ag, mesa.Seat(ag, "L" + s), "L" + s));
+                }
+                else if (tipos[s] <= -2) mesa.Seat(new jackpot_q(e.Salon[-2 - tipos[s]]), "Salon" + s);
+                else mesa.Seat(pool[tipos[s]].Crear(), pool[tipos[s]].Nombre + "#" + s);
+            }
+            var partida = new TableMatch(mesa, handsToPlay: 30, qualifiers: Math.Min(3, tipos.Length - 1));
+            HandResult r;
+            while ((r = partida.PlayNext()) != null)
+                foreach (var a in ap) a.Agente.FinDeMano(r.Net[a.Asiento] / (double)mesa.Config.BigBlind);
+            var pos = partida.GetStandings();
+            var lista = new List<jackpot_q.Transicion>();
+            foreach (var a in ap)
+            {
+                lista.AddRange(a.Agente.Transiciones);
+                if (pos.First(x => x.Name == a.Nombre).Qualifies) clasif[t]++;
+            }
+            transiciones[t] = lista;
+            asientos[t] = ap.Count;
+        });
+
+        // ---- 2. Q-learning: aplicar las transiciones en orden fijo (un solo hilo, sin carreras) ----
+        foreach (var lista in transiciones)
+            foreach (var tr in lista)
+            {
+                double meta = tr.Recompensa;
+                if (tr.Siguiente >= 0) meta += MaxQ(e.Q, e.N, tr.Siguiente, tr.LegalesSiguiente);
+                int i = tr.Estado * jackpot_q.NumAcciones + tr.Accion;
+                e.N[i]++;
+                e.Q[i] += (float)((meta - e.Q[i]) / e.N[i]);
+            }
+        e.Tandas++;
+        e.Mesas += tanda;
+        double clasifEntreno = clasif.Sum() / (double)Math.Max(1, asientos.Sum());
+
+        // ---- 3. Validación y puerta de campeón ----
+        var cand = jackpot_q.ConstruirCorreccion(e.Q, e.N, nMin, margenBb);
+        int correcciones = cand.Count(x => x >= 0);
+        int[] valCand = Evaluar(() => new jackpot_q(cand), valMesas).Clasif;
+        var (d1, se1) = DifPareada(valCand, valCampeon);
+        e.HistVal.Add(valCand.Average());
+        double z = 0;
+        bool aceptado = false;
+        if (correcciones > 0 && d1 > 0 && d1 > se1)
+        {
+            var conf = GenerarMesas(nVal, 5_000_000 + 1009 * e.Tandas);      // mesas nuevas en cada confirmación
+            var (d2, se2) = DifPareada(Evaluar(() => new jackpot_q(cand), conf).Clasif, Evaluar(() => new jackpot_q(e.Campeon), conf).Clasif);
+            z = (d1 + d2) / Math.Sqrt(se1 * se1 + se2 * se2 + 1e-12);
+            Console.WriteLine($"   confirmación: {100 * d2:+0.0;-0.0} ± {100 * 1.96 * se2:F1} pts (z combinado {z:F2})");
+            if (d2 > 0 && z > 2.0)
+            {
+                aceptado = true;
+                e.Campeon = cand;
+                e.Salon.Add(cand);
+                if (e.Salon.Count > maxSalon) e.Salon.RemoveAt(0);
+                valCampeon = valCand;
+                EscribirCampeon(archCampeon, cand, e);
+            }
+        }
+        e.SinMejora = aceptado ? 0 : e.SinMejora + 1;
+        int visitados = Enumerable.Range(0, jackpot_q.NumEstados).Count(s => e.N[s * 3] + e.N[s * 3 + 1] + e.N[s * 3 + 2] > 0);
+
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        File.AppendAllText(archHist, string.Format(ci, "{0},{1},{2:F1},{3:F4},{4:F4},{5:F4},{6:F4},{7:F4},{8:F2},{9},{10},{11}\n",
+            e.Tandas, e.Mesas, reloj.Elapsed.TotalMinutes, clasifEntreno, valCand.Average(), valCampeon.Average(),
+            d1, 1.96 * se1, z, aceptado ? 1 : 0, correcciones, visitados));
+        Console.WriteLine($"Tanda {e.Tandas,3} | {e.Mesas,6} mesas | {reloj.Elapsed.TotalMinutes,6:F1} min | entreno {100 * clasifEntreno,5:F1}%" +
+                          $" | validación cand {100 * valCand.Average(),5:F1}% vs campeón {100 * valCampeon.Average(),5:F1}%" +
+                          $" ({100 * d1:+0.0;-0.0} ± {100 * 1.96 * se1:F1}) | correcciones {correcciones} | estados {visitados}" +
+                          (aceptado ? " | NUEVO CAMPEÓN" : $" | sin mejora {e.SinMejora}"));
+        e.Guardar(archEstado);
+
+        // ---- 4. Meseta: varias puertas sin campeón y tendencia de validación plana ----
+        if (e.SinMejora >= paciencia && e.HistVal.Count >= ventanaMeseta)
+        {
+            var y = e.HistVal.Skip(e.HistVal.Count - ventanaMeseta).ToArray();
+            var (pend, sePend) = Pendiente(y);
+            if (Math.Abs(pend) < 1.96 * sePend)
+            {
+                Console.WriteLine($"Fin: meseta ({paciencia} puertas sin campeón y pendiente {100 * pend:+0.00;-0.00} ± {100 * 1.96 * sePend:F2} pts/tanda).");
+                break;
+            }
+        }
+    }
+    Console.WriteLine(e.Campeon == null
+        ? "Ningún candidato superó a la v1: jackpot.cs se queda igual."
+        : $"Campeón guardado en {archCampeon}. Verifícalo con 'comparar' antes de pegarlo en jackpot.cs.");
+}
+
+static double MaxQ(float[] q, int[] n, int estado, int legales)
+{
+    double mejor = double.NegativeInfinity;
+    for (int a = 0; a < jackpot_q.NumAcciones; a++)
+    {
+        int i = estado * jackpot_q.NumAcciones + a;
+        if ((legales & (1 << a)) != 0 && n[i] > 0 && q[i] > mejor) mejor = q[i];
+    }
+    return double.IsNegativeInfinity(mejor) ? 0 : mejor;
+}
+
+static (double, double) Pendiente(double[] y)
+{
+    int k = y.Length;
+    double mx = (k - 1) / 2.0, my = y.Average(), sxx = 0, sxy = 0;
+    for (int i = 0; i < k; i++) { sxx += (i - mx) * (i - mx); sxy += (i - mx) * (y[i] - my); }
+    double b = sxy / sxx, sse = 0;
+    for (int i = 0; i < k; i++) { double r = y[i] - (my + b * (i - mx)); sse += r * r; }
+    return (b, Math.Sqrt(sse / Math.Max(1, k - 2) / sxx));
+}
+
+static void EscribirCampeon(string archivo, sbyte[] tabla, EstadoLiga e)
+{
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine($"// Campeón de la liga: tanda {e.Tandas}, {e.Mesas} mesas de entrenamiento, {DateTime.Now:yyyy-MM-dd HH:mm}.");
+    sb.AppendLine("// Pegar en Agents/jackpot_q.cs (o jackpot.cs) reemplazando la línea de TablaCorreccion, tras verificar con 'comparar'.");
+    sb.AppendLine("private static readonly sbyte[] TablaCorreccion =");
+    sb.AppendLine("{");
+    for (int i = 0; i < tabla.Length; i += 36)
+        sb.AppendLine("    " + string.Join(", ", tabla.Skip(i).Take(36)) + ",");
+    sb.AppendLine("};");
+    File.WriteAllText(archivo, sb.ToString());
+}
+
+/// <summary>Estado persistente de la liga (tabla Q, conteos, campeón y salón de la fama): permite retomar.</summary>
+sealed class EstadoLiga
+{
+    public float[] Q = new float[jackpot_q.NumEstados * jackpot_q.NumAcciones];
+    public int[] N = new int[jackpot_q.NumEstados * jackpot_q.NumAcciones];
+    public int Tandas, SinMejora;
+    public long Mesas;
+    public sbyte[] Campeon;                       // null = v1
+    public List<sbyte[]> Salon = new List<sbyte[]>();
+    public List<double> HistVal = new List<double>();
+
+    public void Guardar(string archivo)
+    {
+        string tmp = archivo + ".tmp";
+        using (var w = new BinaryWriter(File.Create(tmp)))
+        {
+            w.Write(1); w.Write(Tandas); w.Write(SinMejora); w.Write(Mesas);
+            foreach (var v in Q) w.Write(v);
+            foreach (var v in N) w.Write(v);
+            EscribirTabla(w, Campeon);
+            w.Write(Salon.Count); foreach (var s in Salon) EscribirTabla(w, s);
+            w.Write(HistVal.Count); foreach (var v in HistVal) w.Write(v);
+        }
+        File.Move(tmp, archivo, overwrite: true);   // escritura atómica: un corte no deja el estado a medias
+    }
+
+    public static EstadoLiga Cargar(string archivo)
+    {
+        var e = new EstadoLiga();
+        using var r = new BinaryReader(File.OpenRead(archivo));
+        if (r.ReadInt32() != 1) throw new InvalidDataException("Versión de estado desconocida");
+        e.Tandas = r.ReadInt32(); e.SinMejora = r.ReadInt32(); e.Mesas = r.ReadInt64();
+        for (int i = 0; i < e.Q.Length; i++) e.Q[i] = r.ReadSingle();
+        for (int i = 0; i < e.N.Length; i++) e.N[i] = r.ReadInt32();
+        e.Campeon = LeerTabla(r);
+        int k = r.ReadInt32(); for (int i = 0; i < k; i++) e.Salon.Add(LeerTabla(r));
+        k = r.ReadInt32(); for (int i = 0; i < k; i++) e.HistVal.Add(r.ReadDouble());
+        return e;
+    }
+
+    static void EscribirTabla(BinaryWriter w, sbyte[] t)
+    {
+        w.Write(t == null ? -1 : t.Length);
+        if (t != null) foreach (var v in t) w.Write(v);
+    }
+
+    static sbyte[] LeerTabla(BinaryReader r)
+    {
+        int len = r.ReadInt32();
+        if (len < 0) return null;
+        var t = new sbyte[len];
+        for (int i = 0; i < len; i++) t[i] = r.ReadSByte();
+        return t;
+    }
 }
 
 /// <summary>Mide el tiempo de cada decisión y reenvía OnHandEnd si tu agente lo implementa.</summary>

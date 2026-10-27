@@ -44,6 +44,7 @@ en macOS/Linux, `./run.sh` / `./entrenar.sh`. La primera vez tarda un poco porqu
 | `jackpot_v1.cs` | Copia congelada de la v1 (referencia para comparar). | No |
 | `jackpot_v2.cs` | v1 + posición + tipos de rival (station/maníaco/roca) + parámetros ajustables. Rindió peor. | No |
 | `jackpot_v3.cs` | v1 + contar "se retira" solo cuando había apuesta que pagar. Igual que v1 (sin diferencia demostrada). | No |
+| `jackpot_q.cs` | v1 + tabla de corrección aprendida por self-play (sección 4b). Con la tabla vacía = v1. | No (aún) |
 | `MiAgente.cs`, `Rival.cs` | Ejemplos del kit (línea base). | No |
 
 Para probar una idea nueva: copia `jackpot.cs` a `jackpot_v4.cs`, cambia **todas** las apariciones del nombre de la clase
@@ -90,6 +91,53 @@ El laboratorio **no se entrega**: puede usar hilos, archivos, etc. Está en `Ent
   (y, si quieres que aparezca como rival, a `Pool`).
 - Las mesas son de 3, 4 y 6 jugadores con rivales al azar de: Heuristic ×2, Rival, Station, Raiser, Random, MiAgente, jackpot_v1.
 - Duración aproximada en nuestro PC: 800 mesas × 6 agentes ≈ 12–15 min.
+
+---
+
+## 4b. Autoentrenamiento (self-play) de `jackpot_q`
+
+`Agents/jackpot_q.cs` es la v1 más una **tabla de corrección** aprendida jugando contra sí mismo (clase 11).
+Con la tabla vacía juega exactamente igual que la v1. No se entrega mientras no supere a la v1.
+
+**Cómo aprende (en simple):**
+- **Un solo cerebro.** Una tabla Q compartida juega en 1 a 3 asientos de cada mesa.
+- **Rivales mezclados.** Esos asientos juegan contra el **salón de la fama** (campeones anteriores congelados) y contra
+  **anclas fijas** (Heuristic ×2, Rival, Station, Raiser, Random, MiAgente y jackpot_v1).
+- **Recompensa.** Son las fichas netas de cada mano en ciegas grandes. Lo que gana uno lo pierden otros, así que la
+  recompensa es de **suma cero**.
+- **Estado.** Se agrupa en calle × equity (8 rangos) × pot odds × apuestas × rivales × posición, que da 2.304 estados.
+  Las acciones son FOLD, CALL y RAISE.
+- **Exploración y aprendizaje.** Explora con **UCB**: prueba lo incierto o lo prometedor, no al azar. Aprende con
+  **Q-learning** usando α = 1/N.
+- **Corrección de la v1.** La tabla solo cambia la acción de la v1 cuando el estado tiene ≥ 30 visitas y otra
+  acción rinde más de 0,3 ciegas grandes.
+
+**Cómo evita el sobreajuste:**
+1. Las mesas son mixtas: siempre hay anclas y campeones anteriores.
+2. Hay una **validación separada** de 600 mesas, solo con anclas y con semillas que nunca se usan para entrenar.
+3. Hay una **puerta de campeón**: el candidato debe ganar en validación y confirmarlo en 600 mesas nuevas, con
+   z combinado > 2.
+4. La consola muestra la **brecha** entre la clasificación en entrenamiento y la de validación.
+
+```text
+.\entrenar.cmd selfplay 5000          # modalidad acotada: hasta 5000 mesas (10 tandas de 500)
+.\entrenar.cmd selfplay infinito      # modalidad indefinida: para sola al llegar a la meseta
+.\entrenar.cmd selfplay 5000 --hilos 6    # deja núcleos libres para seguir usando el PC
+```
+
+- **Meseta (parada automática):** 6 puertas seguidas sin nuevo campeón **y** validación plana en las últimas
+  10 tandas (la pendiente con su ± incluye el 0).
+- **Detener sin perder nada:** crear el archivo `Entrenamiento/liga/STOP`. Termina la tanda en curso y se detiene.
+  Ctrl+C corta al instante y pierde solo la tanda en curso.
+- **Retomar:** relanzar el mismo comando. El estado se guarda en `Entrenamiento/liga/estado.bin` después de cada tanda.
+- **Resultados:**
+  - `Entrenamiento/liga/historial.csv` tiene una fila por tanda.
+  - `Entrenamiento/liga/campeon_tabla.txt` tiene la tabla del campeón, lista para pegar.
+- **Para usarlo en otro PC:** clonar el repo, instalar .NET SDK 10, desactivar la suspensión y lanzar `selfplay infinito`.
+- **Aceptar un campeón:**
+  1. pegar su tabla en `jackpot_q.cs`;
+  2. pasar `comparar` contra `jackpot` en dos semillas nuevas, ganando por más del ±;
+  3. solo entonces llevarlo a `jackpot.cs` y repetir `check` y los 3 bench.
 
 ---
 
