@@ -1,0 +1,945 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>AgentsPoker.Core</name>
+    </assembly>
+    <members>
+        <member name="T:AgentsPoker.Core.Agents.FoldAgent">
+            <summary>Always folds (checks are still free only if GameConfig.ConvertFreeFoldToCheck = true).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.FoldAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.FoldAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.CheckFoldAgent">
+            <summary>Checks when free, otherwise folds. Never puts chips in voluntarily.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.CheckFoldAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.CheckFoldAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.CallingStationAgent">
+            <summary>Always calls / checks.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.CallingStationAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.CallingStationAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.AlwaysRaiseAgent">
+            <summary>Always raises (engine downgrades to CALL once capped).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.AlwaysRaiseAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.AlwaysRaiseAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.RandomAgent">
+            <summary>Uniform random over legal actions, never folds when checking is free. Seedable.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.RandomAgent.#ctor(System.Nullable{System.Int32})">
+            <summary>Creates the agent; same seed = same decisions.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.RandomAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.RandomAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.SimpleHeuristicAgent">
+            <summary>
+            Tiny heuristic baseline: raises strong hands, calls medium, folds trash.
+            Preflop uses a hole-card score; postflop uses the HandEvaluator category.
+            </summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.SimpleHeuristicAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.SimpleHeuristicAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.ThrowingAgent">
+            <summary>Test agent: throws on every decision (engine must survive and apply the penalty).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.ThrowingAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.ThrowingAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Agents.SlowAgent">
+            <summary>Test agent: sleeps longer than the timeout.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.SlowAgent.#ctor(System.Int32)">
+            <summary>Sleeps <paramref name="ms"/> milliseconds per decision.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.SlowAgent.Initialize(System.String)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Agents.SlowAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.Suit">
+            <summary>Suit of a card. Order is arbitrary (suits never rank in Hold'em).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Suit.Clubs">
+            <summary>c</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Suit.Diamonds">
+            <summary>d</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Suit.Hearts">
+            <summary>h</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Suit.Spades">
+            <summary>s</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.Card">
+            <summary>
+            Immutable playing card packed in one byte: Index = (Rank - 2) * 4 + Suit, range 0..51.
+            Rank is 2..14 (14 = Ace).
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Card.DeckSize">
+            <summary>52.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Card.Index">
+            <summary>0..51.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.#ctor(System.Int32)">
+            <summary>Card from its index 0..51 (= (Rank - 2) * 4 + Suit).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.#ctor(System.Int32,AgentsPoker.Core.Suit)">
+            <summary>Card from rank 2..14 (14 = Ace) and suit.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Card.Rank">
+            <summary>2..14 (11=J, 12=Q, 13=K, 14=A).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Card.Suit">
+            <summary>Suit of the card.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.Parse(System.String)">
+            <summary>Parses "As", "Td", "2c" (case-insensitive rank, lower/upper suit).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.ParseMany(System.String)">
+            <summary>Parses space-separated cards: "As Kd 7h".</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.ToString">
+            <summary>Two chars, e.g. "As", "Td", "2c" (round-trips with <see cref="M:AgentsPoker.Core.Card.Parse(System.String)"/>).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.Equals(AgentsPoker.Core.Card)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.op_Equality(AgentsPoker.Core.Card,AgentsPoker.Core.Card)">
+            <summary>Same card.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Card.op_Inequality(AgentsPoker.Core.Card,AgentsPoker.Core.Card)">
+            <summary>Different card.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.Deck">
+            <summary>52-card deck with Fisher-Yates shuffle. Allocation-free after construction.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Deck.#ctor">
+            <summary>Ordered deck (2c, 2d, ... As).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Deck.Remaining">
+            <summary>Cards not drawn yet.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Deck.Shuffle(System.Random)">
+            <summary>Unbiased Fisher-Yates shuffle of all 52 cards; resets the draw position.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Deck.StackTop(AgentsPoker.Core.Card[])">
+            <summary>Puts specific cards on top of the deck (in order) – used by tests / scripted hands.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Deck.Draw">
+            <summary>Next card from the top.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.ActionType">
+            <summary>
+            The only decision an agent makes (TDD Part 1 §2). The agent expresses an INTENT; the engine turns it into chips.
+            <list type="bullet">
+            <item><description><see cref="F:AgentsPoker.Core.ActionType.FOLD"/>: give up the hand (a FOLD with nothing to call is a real fold unless
+            <see cref="F:AgentsPoker.Core.GameConfig.ConvertFreeFoldToCheck"/> is set).</description></item>
+            <item><description><see cref="F:AgentsPoker.Core.ActionType.CALL"/>: match the current bet; with nothing owed it is a CHECK. If the stack is too short it is an all-in call.</description></item>
+            <item><description><see cref="F:AgentsPoker.Core.ActionType.RAISE"/>: with no bet yet it is a BET; otherwise a raise of exactly one fixed increment
+            (20 preflop/flop, 40 turn/river). If raising is not legal it is downgraded to CALL (see <see cref="T:AgentsPoker.Core.CoercionReason"/>).
+            With fewer chips than a full raise it is an all-in for less.</description></item>
+            </list>
+            Names match the TDD contract exactly. Any other numeric value is treated as invalid (CHECK if free, else FOLD).
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionType.FOLD">
+            <summary>Give up the hand.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionType.CALL">
+            <summary>Check (nothing owed) or call the current bet.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionType.RAISE">
+            <summary>Bet (no bet yet) or raise by one fixed increment.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.IPokerAgent">
+            <summary>Mandatory agent API (TDD Part 1 §2). Students implement this.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerAgent.Initialize(System.String)">
+            <summary>Called once when the agent is seated. Exceptions are caught and reported, never fatal.</summary>
+            <param name="agentName">The seat name given by the organizer.</param>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerAgent.GetAction(AgentsPoker.Core.PlayerObservation)">
+            <summary>
+            Called every time it is this agent's turn. Must return quickly: in tournament mode the engine waits at most
+            <see cref="F:AgentsPoker.Core.GameConfig.AgentTimeoutMs"/> (1000 ms) and then applies the penalty action.
+            </summary>
+            <param name="observation">Immutable snapshot of what this agent is allowed to know (public state + own hole cards).</param>
+            <returns>The intended action. Illegal intents are coerced (see <see cref="T:AgentsPoker.Core.CoercionReason"/>).</returns>
+        </member>
+        <member name="T:AgentsPoker.Core.Street">
+            <summary>Betting round.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Street.Preflop">
+            <summary>Before the flop (2 hole cards, no board).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Street.Flop">
+            <summary>3 board cards.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Street.Turn">
+            <summary>4 board cards.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Street.River">
+            <summary>5 board cards.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.Street.Showdown">
+            <summary>Hand is being resolved (never seen by agents).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.ActionKind">
+            <summary>What actually happened on the table (richer than ActionType, for logs/animation).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.SmallBlind">
+            <summary>Forced small blind.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.BigBlind">
+            <summary>Forced big blind.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.Fold">
+            <summary>Player folded.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.Check">
+            <summary>Player checked (nothing owed).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.Call">
+            <summary>Player called (possibly all-in for less).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.Bet">
+            <summary>First voluntary bet of a postflop street (or completion of a short all-in bet).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.ActionKind.Raise">
+            <summary>Raise (possibly an incomplete all-in raise; see <see cref="P:AgentsPoker.Core.ActionRecord.IsIncompleteRaise"/>).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.CoercionReason">
+            <summary>Why the engine replaced the agent's requested action. <see cref="F:AgentsPoker.Core.CoercionReason.None"/> = applied as requested.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.None">
+            <summary>The requested action was applied as-is.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.RaiseCapped">
+            <summary>RAISE after the street was capped (1 bet + 3 raises) -> CALL.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.RaiseNotReopened">
+            <summary>
+            RAISE by a player who already acted on this street and has only faced incomplete (short all-in) raises since -> CALL.
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.RaiseInsufficientChips">
+            <summary>RAISE without more chips than the amount owed -> CALL (all-in).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.RaiseNoOpponentCanAct">
+            <summary>RAISE when every opponent is already all-in (nobody could call it) -> CALL.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.FreeFoldConvertedToCheck">
+            <summary>FOLD with nothing to call while <see cref="F:AgentsPoker.Core.GameConfig.ConvertFreeFoldToCheck"/> is on -> CHECK.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.InvalidAction">
+            <summary>The agent returned a value outside FOLD/CALL/RAISE -> CHECK if free, else FOLD.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.AgentException">
+            <summary>The agent threw an exception -> CHECK if free, else FOLD.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.CoercionReason.Timeout">
+            <summary>The agent exceeded <see cref="F:AgentsPoker.Core.GameConfig.AgentTimeoutMs"/> -> CHECK if free, else FOLD.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.ActionRecord">
+            <summary>One public event in the hand history. Immutable.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Seat">
+            <summary>Seat index of the actor.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.PlayerName">
+            <summary>Name of the actor.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Street">
+            <summary>Street on which the action happened.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Kind">
+            <summary>What was applied on the table.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Requested">
+            <summary>The ActionType the agent returned (blinds: CALL; error/timeout: the penalty action).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Amount">
+            <summary>Chips put in by this action.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.CommittedThisStreet">
+            <summary>Player's total committed on this street after the action.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.IsAllIn">
+            <summary>The player has no chips left after this action.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.IsIncompleteRaise">
+            <summary>
+            A Bet/Raise that was all-in for less than a full increment and did not reach the next betting level:
+            it does not count toward the cap and does not reopen raising for players who already acted.
+            </summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.Coercion">
+            <summary>Why the engine changed the requested action (None if it didn't).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.ActionRecord.WasCoerced">
+            <summary>True when the engine replaced the agent's choice (illegal raise, error, timeout...).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.ActionRecord.ToString">
+            <summary>Readable one-liner for logs.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.PublicPlayerState">
+            <summary>Public, read-only view of one seat. Never contains other players' hole cards.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.Seat">
+            <summary>Seat index (same as the index in <see cref="P:AgentsPoker.Core.PlayerObservation.Players"/>).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.Name">
+            <summary>Seat name.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.Stack">
+            <summary>Chips behind (not yet committed).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.CommittedThisStreet">
+            <summary>Chips committed on the current street.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.CommittedThisHand">
+            <summary>Chips committed this hand (all streets, blinds included).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.IsInHand">
+            <summary>Dealt into this hand (had chips at the start of the hand).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.HasFolded">
+            <summary>Folded this hand.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.IsAllIn">
+            <summary>No chips left behind; cannot act any more this hand.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.IsButton">
+            <summary>Holds the dealer button.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PublicPlayerState.IsActive">
+            <summary>Still contesting the pot (dealt in and not folded).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.PlayerObservation">
+            <summary>
+            Everything an agent may know when deciding (TDD Part 1 §2): public table state + its own 2 hole cards.
+            Immutable: a fresh snapshot is built for every decision, so agents can keep it but cannot change the engine.
+            </summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.HandNumber">
+            <summary>1-based hand counter of the table.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Seat">
+            <summary>My seat index.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.ButtonSeat">
+            <summary>Dealer button seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.SmallBlindSeat">
+            <summary>Seat that posted the small blind (heads-up: the button).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.BigBlindSeat">
+            <summary>Seat that posted the big blind.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.HoleCards">
+            <summary>My 2 hole cards.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Board">
+            <summary>Community cards: 0 (preflop), 3, 4 or 5.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Street">
+            <summary>Current street (Preflop..River).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Pot">
+            <summary>All chips committed this hand by everyone, including the current street.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.CurrentBet">
+            <summary>Highest commitment level on this street (what a CALL matches).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.ToCall">
+            <summary>Chips a CALL costs me now (already capped by my stack). 0 = CALL is a check.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.RaiseCost">
+            <summary>Chips a RAISE would cost me now (call + increment, capped by my stack). 0 when RAISE is not legal.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.BetSize">
+            <summary>Fixed raise increment this street (20 preflop/flop, 40 turn/river).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.BetsThisStreet">
+            <summary>Full bets + raises so far this street (preflop the BB counts as 1). Incomplete all-ins don't count.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.MaxBetsPerStreet">
+            <summary>Cap: 4 (1 bet + 3 raises).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.CanRaise">
+            <summary>True if RAISE will be applied as a raise (otherwise it is coerced to CALL).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.LegalActions">
+            <summary>Legal intents right now: always FOLD and CALL, plus RAISE when <see cref="P:AgentsPoker.Core.PlayerObservation.CanRaise"/>.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.MyStack">
+            <summary>My chips behind.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.MyCommittedThisStreet">
+            <summary>My chips committed on this street.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.MyCommittedThisHand">
+            <summary>My chips committed this hand.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.SmallBlind">
+            <summary>Small blind amount.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.BigBlind">
+            <summary>Big blind amount.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Players">
+            <summary>Every seat at the table, indexed by seat (including busted / not dealt-in seats).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.ActionHistory">
+            <summary>Public actions of this hand so far, oldest first (empty if disabled in GameConfig).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PlayerObservation.IsLegal(AgentsPoker.Core.ActionType)">
+            <summary>True if <paramref name="a"/> is in <see cref="P:AgentsPoker.Core.PlayerObservation.LegalActions"/>.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.IsFacingBet">
+            <summary>Someone bet more than me on this street.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.Me">
+            <summary>My seat state (same as Players[Seat]).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.ActivePlayerCount">
+            <summary>Players still contesting the pot (not folded), me included.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PlayerObservation.PotOdds">
+            <summary>Pot odds of a call: ToCall / (Pot + ToCall). 0 when checking is free.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.AgentError">
+            <summary>Agent crashed or timed out; engine applied the penalty action (TDD Part 2 §4).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.HandNumber">
+            <summary>Hand in which it happened (0 = during Initialize).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.Seat">
+            <summary>Offending seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.PlayerName">
+            <summary>Offending agent name.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.IsTimeout">
+            <summary>True for a timeout, false for an exception.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.Message">
+            <summary>Exception type + message, or timeout description.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.AgentError.PenaltyAction">
+            <summary>Action applied instead (CALL = check when free, otherwise FOLD).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.AgentError.ToString">
+            <summary>Readable one-liner for the on-screen console.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.PotResult">
+            <summary>One pot (main or side) and who took it.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PotResult.Amount">
+            <summary>Chips in this pot.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PotResult.EligibleSeats">
+            <summary>Seats that could win this pot.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PotResult.WinnerSeats">
+            <summary>Seats that won (split), ordered clockwise from the button; the first ones get odd chips.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PotResult.IsUncontested">
+            <summary>
+            Only one eligible player: everyone else folded, or it is the uncalled part of a bet returned to its owner
+            (no showdown needed for this pot).
+            </summary>
+        </member>
+        <member name="T:AgentsPoker.Core.HandResult">
+            <summary>Full record of a finished hand (for the Arena, logs and training analysis). Contains every hole card: NOT for agents.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.HandNumber">
+            <summary>1-based hand counter of the table.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.ButtonSeat">
+            <summary>Dealer button seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.SmallBlindSeat">
+            <summary>Small blind seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.BigBlindSeat">
+            <summary>Big blind seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Board">
+            <summary>Final community cards (fewer than 5 if the hand ended early).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.HoleCards">
+            <summary>Indexed by seat; null for seats not dealt in.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.HandValues">
+            <summary>Indexed by seat; HandEvaluator value at showdown, 0 when not shown down.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Won">
+            <summary>Chips won from the pot(s), by seat (includes returned uncalled chips).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Net">
+            <summary>Net chip change this hand (Won - committed), by seat. Sums to 0.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.StacksBefore">
+            <summary>Stacks at the start of the hand (before blinds), by seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.StacksAfter">
+            <summary>Stacks after the hand, by seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Pots">
+            <summary>Main pot first, then side pots.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Actions">
+            <summary>Every action including blinds, in order.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.Errors">
+            <summary>Agent exceptions / timeouts during this hand.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.WentToShowdown">
+            <summary>More than one player reached the end of the hand.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandResult.TotalPot">
+            <summary>All chips committed this hand (sum of Pots).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.IPokerTableListener">
+            <summary>Optional hooks for the Unity Arena (animations, logs). All callbacks are synchronous, on the engine thread.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerTableListener.OnHandStarted(System.Int32,System.Int32,System.Collections.Generic.IReadOnlyList{System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card}})">
+            <summary>Cards dealt, before the blinds.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerTableListener.OnAction(AgentsPoker.Core.ActionRecord)">
+            <summary>Every action, blinds included.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerTableListener.OnStreetDealt(AgentsPoker.Core.Street,System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card})">
+            <summary>Flop/turn/river dealt; <paramref name="board"/> is the full board so far.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerTableListener.OnAgentError(AgentsPoker.Core.AgentError)">
+            <summary>An agent threw or timed out.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IPokerTableListener.OnHandFinished(AgentsPoker.Core.HandResult)">
+            <summary>Hand finished and chips distributed.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.PokerTableListenerBase">
+            <summary>Convenience base: override only what you need.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTableListenerBase.OnHandStarted(System.Int32,System.Int32,System.Collections.Generic.IReadOnlyList{System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTableListenerBase.OnAction(AgentsPoker.Core.ActionRecord)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTableListenerBase.OnStreetDealt(AgentsPoker.Core.Street,System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card})">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTableListenerBase.OnAgentError(AgentsPoker.Core.AgentError)">
+            <inheritdoc/>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTableListenerBase.OnHandFinished(AgentsPoker.Core.HandResult)">
+            <inheritdoc/>
+        </member>
+        <member name="T:AgentsPoker.Core.IHandObserver">
+            <summary>
+            OPTIONAL interface for agents that want to learn from the table. If your agent class also implements it, the engine calls
+            <see cref="M:AgentsPoker.Core.IHandObserver.OnHandEnd(AgentsPoker.Core.HandSummary)"/> once per hand, after the chips are distributed, on EVERY seated agent (including ones that folded
+            or were not dealt in). Same safety as GetAction: exceptions are caught and, in tournament mode, the call is limited to
+            <see cref="F:AgentsPoker.Core.GameConfig.AgentTimeoutMs"/> (reported as an <see cref="T:AgentsPoker.Core.AgentError"/>; no action penalty).
+            Agents that do not implement it keep working unchanged.
+            </summary>
+        </member>
+        <member name="M:AgentsPoker.Core.IHandObserver.OnHandEnd(AgentsPoker.Core.HandSummary)">
+            <summary>Public summary of the finished hand (showdown cards included, mucked/folded cards never).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.HandSummary">
+            <summary>
+            What every agent may learn when a hand ends (public information only). Immutable.
+            Revealed cards rule: if 2+ players reach the showdown, the hole cards of EVERY player who reached it are revealed to all;
+            folded players' cards are never revealed; an uncontested winner (everyone else folded) does NOT show.
+            </summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.HandNumber">
+            <summary>1-based hand counter of the table.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.MySeat">
+            <summary>Seat of the agent receiving this summary.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.ButtonSeat">
+            <summary>Dealer button seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.SmallBlindSeat">
+            <summary>Small blind seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.BigBlindSeat">
+            <summary>Big blind seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.PlayerNames">
+            <summary>Seat names, by seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.Board">
+            <summary>Final community cards (fewer than 5 if the hand ended early).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.WentToShowdown">
+            <summary>True when 2+ players reached the end of the hand (cards were shown).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.RevealedCards">
+            <summary>By seat: the 2 hole cards if that player reached the showdown, otherwise null (folded, uncontested winner, not dealt in).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.HandValues">
+            <summary>By seat: HandEvaluator value of revealed hands (0 when not revealed).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.Actions">
+            <summary>Every public action of the hand in order (blinds included); each record carries Street, Seat, Kind, Amount.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.Pots">
+            <summary>Main pot first, then side pots, with winners.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.Winners">
+            <summary>Seats that won chips from a contested or uncontested pot (refunds of uncalled bets excluded).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.Net">
+            <summary>Net chip change this hand, by seat (sums to 0).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.StacksBefore">
+            <summary>Stacks at the start of the hand, by seat.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.HandSummary.StacksAfter">
+            <summary>Stacks after the hand, by seat.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandSummary.CardsOf(System.Int32)">
+            <summary>Hole cards of a seat if they were revealed, else null.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandSummary.ActionsOn(AgentsPoker.Core.Street)">
+            <summary>Actions of one street, in order.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.GameConfig">
+            <summary>
+            Limit Hold'em rules (TDD Part 1 §1). Defaults = tournament spec (SB 10 / BB 20, increments 20/40, cap 4, 10,000 chips).
+            A <see cref="T:AgentsPoker.Core.PokerTable"/> takes a private copy at construction: changing this object afterwards has no effect on that table.
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.SmallBlind">
+            <summary>Small blind (posted by the seat left of the button; heads-up by the button).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.BigBlind">
+            <summary>Big blind. Counts as bet #1 of the preflop street.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.SmallBet">
+            <summary>Fixed bet/raise increment on Preflop and Flop.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.BigBet">
+            <summary>Fixed bet/raise increment on Turn and River.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.MaxBetsPerStreet">
+            <summary>Cap per street: 1 bet + 3 raises. Preflop the big blind counts as the bet.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.StartingStack">
+            <summary>Stack given by <see cref="M:AgentsPoker.Core.PokerTable.Seat(AgentsPoker.Core.IPokerAgent,System.String,System.Nullable{System.Int32})"/> and <see cref="M:AgentsPoker.Core.PokerTable.ResetStacks"/>.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.AgentTimeoutMs">
+            <summary>
+            Per-decision timeout in ms (TDD Part 2 §4 = 1000). 0 = call the agent synchronously with no timeout
+            (fastest; use for training). Exceptions are ALWAYS caught regardless of this value.
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.ConvertFreeFoldToCheck">
+            <summary>If true, a FOLD when there is nothing to call is turned into a CHECK (logged as a coercion).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.Seed">
+            <summary>RNG seed for shuffling. null = random seed. Same seed + same agents = same game.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.GameConfig.IncludeHistoryInObservation">
+            <summary>Put this hand's ActionHistory into observations (small cost). Disable for max training speed.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.GameConfig.BetSizeFor(AgentsPoker.Core.Street)">
+            <summary>The fixed increment for a street (SmallBet on Preflop/Flop, BigBet on Turn/River).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.GameConfig.Tournament(System.Nullable{System.Int32})">
+            <summary>Live event settings: default rules + 1000 ms timeout per decision.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.GameConfig.Training(System.Nullable{System.Int32})">
+            <summary>Training settings: default rules, no timeout (agent called synchronously, maximum speed).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.GameConfig.Clone">
+            <summary>Shallow copy.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.GameConfig.Validate">
+            <summary>Throws <see cref="T:System.ArgumentException"/> if the values cannot make a valid game.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.PokerTable">
+            <summary>
+            Headless Limit Hold'em table (2..10 seats). No Unity, no threads unless <see cref="F:AgentsPoker.Core.GameConfig.AgentTimeoutMs"/> &gt; 0.
+            Usage: add agents with <see cref="M:AgentsPoker.Core.PokerTable.Seat(AgentsPoker.Core.IPokerAgent,System.String,System.Nullable{System.Int32})"/>, then call <see cref="M:AgentsPoker.Core.PokerTable.PlayHand"/> repeatedly (button moves automatically).
+            Chips are conserved: the sum of stacks never changes. Not thread-safe: drive one table from one thread.
+            See README.md "Rules" for the exact betting / all-in / side-pot rules.
+            </summary>
+        </member>
+        <member name="F:AgentsPoker.Core.PokerTable.MaxSeats">
+            <summary>Maximum seats per table.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.PokerTable.SeatState.HasActed">
+            <summary>Acted since the last FULL bet/raise on this street (a full raise resets it for everyone else).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.Config">
+            <summary>Rules in force (private copy of the config passed to the constructor; do not modify).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.Listener">
+            <summary>Optional synchronous event sink (Unity Arena animations, logs).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.HandNumber">
+            <summary>Hands played so far on this table.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.SeatCount">
+            <summary>Number of seated agents.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.ButtonSeat">
+            <summary>Button seat of the last/current hand (-1 before the first hand).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.#ctor(AgentsPoker.Core.GameConfig)">
+            <summary>Creates a table. <paramref name="config"/> is copied and validated; null = tournament rules without timeout.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.Seat(AgentsPoker.Core.IPokerAgent,System.String,System.Nullable{System.Int32})">
+            <summary>Seats an agent with Config.StartingStack (or a custom stack) and calls its Initialize. Returns the seat index.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.GetStack(System.Int32)">
+            <summary>Chips of a seat.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.GetName(System.Int32)">
+            <summary>Name of a seat.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.SetStack(System.Int32,System.Int32)">
+            <summary>Overrides a stack between hands (tests / custom setups). Negative values become 0.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.ResetStacks">
+            <summary>Resets every stack to Config.StartingStack (new table in the bracket, TDD Part 2 §1).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.TotalChips">
+            <summary>Sum of all stacks (constant between hands).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.PlayersWithChips">
+            <summary>Seats with at least one chip.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.PokerTable.CanPlayHand">
+            <summary>At least two seats have chips.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.StackDeckForNextHand(AgentsPoker.Core.Card[])">
+            <summary>Test hook: next hand uses these cards in deal order
+            (hole cards: 1st card to each player starting at SB, then 2nd card; then flop x3, turn, river; no burns).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.PlayHand">
+            <summary>Plays one complete hand (blinds, 4 betting rounds, showdown) and returns its record.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.PokerTable.Owed(AgentsPoker.Core.PokerTable.SeatState,System.Int32)">
+            <summary>
+            Chips this player must add to call. Normally CurrentBet - committed; but when nobody else can still act
+            (all opponents all-in or folded) it is capped at the largest live opponent commitment: matching more
+            would only create an uncalled bet that is immediately returned.
+            </summary>
+        </member>
+        <member name="T:AgentsPoker.Core.TieBreakRule">
+            <summary>How a standing was separated from seats with the same final stack.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.TieBreakRule.None">
+            <summary>No other seat had the same final stack.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.TieBreakRule.StackHistory">
+            <summary>Decided by stack history: whoever had more chips after the most recent hand where the tied stacks differed
+            (the same idea as "eliminated later ranks higher").</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.TieBreakRule.SeatOrder">
+            <summary>Identical stacks after every hand (and at the start): lower seat index ranks higher.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.Standing">
+            <summary>One standings row. Immutable.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.Seat">
+            <summary>Seat index.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.Name">
+            <summary>Agent name.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.Stack">
+            <summary>Chips now.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.Rank">
+            <summary>1 = chip leader. Always unique (ties are broken deterministically).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.Qualifies">
+            <summary>Inside the top-N advancing zone.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.TiedOnStack">
+            <summary>Another seat has exactly the same stack.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.Standing.TieBreak">
+            <summary>The rule that ordered this seat among seats with the same stack.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.Standing.ToString">
+            <summary>Readable one-liner.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.TableMatch">
+            <summary>
+            Bracket table helper (TDD Part 2 §1): fixed number of hands (30), same starting stack, top N by stack advance.
+            Headless. The Unity Arena should drive it one hand at a time with <see cref="M:AgentsPoker.Core.TableMatch.PlayNext"/> (not Table.PlayHand directly),
+            so the stack history used by the tie-break is recorded.
+            <para>Ranking: higher final stack first. Equal stacks: compare stacks after the previous hand, then the one before,
+            ... back to the starting stacks; the first hand where they differ decides (higher was better more recently).
+            Still equal: lower seat index. Deterministic, and busted players who busted later rank higher.</para>
+            </summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.Table">
+            <summary>The table being played.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.HandsToPlay">
+            <summary>Total hands of this table (30 in the TDD).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.Qualifiers">
+            <summary>How many seats advance (2 or 3 in the TDD).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.HandsPlayed">
+            <summary>Hands already played by this match.</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.HandsRemaining">
+            <summary>Hands left (0 when finished).</summary>
+        </member>
+        <member name="P:AgentsPoker.Core.TableMatch.IsFinished">
+            <summary>All hands played, or fewer than 2 seats have chips.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.#ctor(AgentsPoker.Core.PokerTable,System.Int32,System.Int32)">
+            <summary>Creates a match on an already seated table.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.IsFinalStretch(System.Int32)">
+            <summary>True when the upcoming hand is one of the last <paramref name="lastHands"/> (e.g. 3 =&gt; hands 28-30: back to 1x speed).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.PlayNext">
+            <summary>Plays one hand; returns null when the match is over.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.PlayAll">
+            <summary>Plays every remaining hand.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.GetStandings">
+            <summary>Ranking by stack with the deterministic tie-break described on the class. Valid at any time (live panel).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.TableMatch.Compare(System.Int32,System.Int32,System.Int32[],AgentsPoker.Core.TieBreakRule@)">
+            <summary>&lt;0 if a ranks above b.</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.HandCategory">
+            <summary>Poker hand category, weakest (0) to strongest (8). Stored in bits 20..23 of a HandEvaluator value.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.HighCard">
+            <summary>No pair.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.OnePair">
+            <summary>One pair.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.TwoPair">
+            <summary>Two pair.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.ThreeOfAKind">
+            <summary>Three of a kind.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.Straight">
+            <summary>Five consecutive ranks (A-2-3-4-5 is the lowest).</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.Flush">
+            <summary>Five cards of one suit.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.FullHouse">
+            <summary>Three of a kind + a pair.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.FourOfAKind">
+            <summary>Four of a kind.</summary>
+        </member>
+        <member name="F:AgentsPoker.Core.HandCategory.StraightFlush">
+            <summary>Straight flush (A-high = royal flush).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.HandEvaluator">
+            <summary>
+            Fast 5/6/7-card Hold'em evaluator based on 13-bit rank masks + precomputed lookup tables
+            (straight-high table, bit-count and highest-bit tables, 8192 entries each). No allocation per call,
+            no per-combination if/else: a 7-card hand is evaluated directly (no 21 five-card sub-hands). Tens of ns per 7-card hand.
+            <para><b>Value contract (stable, the swap point of the SDK):</b> an int where HIGHER = BETTER; equal values = exact tie (split).
+            Layout: category (bits 20..23) | up to 5 rank nibbles (bits 0..19, ranks 2..14). Only comparisons, <see cref="M:AgentsPoker.Core.HandEvaluator.GetCategory(System.Int32)"/>,
+            <see cref="M:AgentsPoker.Core.HandEvaluator.Describe(System.Int32)"/> and <see cref="M:AgentsPoker.Core.HandEvaluator.ToEquivalenceClass(System.Int32)"/> are part of the contract; do not decode the nibbles yourself.</para>
+            <para><b>vs Cactus Kev / TwoPlusTwo (TDD Part 1 §1):</b> same idea (lookup tables, no big if/else trees) with a tiny memory
+            footprint (~24 KB instead of Cactus Kev's prime-product tables or TwoPlusTwo's ~130 MB state table). It produces exactly the
+            7462 distinct 5-card equivalence classes of Cactus Kev, and <see cref="M:AgentsPoker.Core.HandEvaluator.ToEquivalenceClass(System.Int32)"/> returns Cactus Kev's numbering
+            (1 = royal flush ... 7462 = 7-5-4-3-2 offsuit), verified exhaustively by the test suite over all 2,598,960 5-card and
+            all 133,784,560 7-card hands. If ever needed, the internals can be swapped for a TwoPlusTwo table without changing this API.</para>
+            </summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.Evaluate(System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card})">
+            <summary>Evaluates 5..7 distinct cards. Higher result = better hand.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.Evaluate(AgentsPoker.Core.Card,AgentsPoker.Core.Card,System.Collections.Generic.IReadOnlyList{AgentsPoker.Core.Card})">
+            <summary>Evaluates 2 hole cards + 3..5 board cards without allocating. Higher result = better hand.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.Evaluate(AgentsPoker.Core.Card,AgentsPoker.Core.Card,AgentsPoker.Core.Card[],System.Int32)">
+            <summary>Engine fast path: 2 hole cards + the first boardCount cards of board (no boxing, no allocation).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.EvaluateSpan(System.ReadOnlySpan{AgentsPoker.Core.Card})">
+            <summary>Evaluates 5..7 distinct cards from a span (fastest entry point). Higher result = better hand.</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.GetCategory(System.Int32)">
+            <summary>Category of an evaluated hand (pair, flush, ...).</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.Describe(System.Int32)">
+            <summary>Human readable, e.g. "Full House (K over 7)".</summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.DescribeDetailed(System.Int32)">
+            <summary>
+            Like <see cref="M:AgentsPoker.Core.HandEvaluator.Describe(System.Int32)"/> but also names the kickers that break ties inside the category, e.g.
+            "Two Pair (A and T, K kicker)" or "Pair of T (kickers Q J 9)". Two values with the same
+            DescribeDetailed text are an exact tie (split pot). Full house / straight / straight flush need no kicker.
+            </summary>
+        </member>
+        <member name="M:AgentsPoker.Core.HandEvaluator.ToEquivalenceClass(System.Int32)">
+            <summary>
+            Cactus Kev equivalence class of an evaluated hand: 1 (royal flush) .. 7462 (7-5-4-3-2 offsuit). LOWER = better,
+            the opposite of the raw value. Handy for normalized features: strength = (7463 - class) / 7462.0.
+            </summary>
+            <exception cref="T:System.ArgumentException">The value was not produced by this evaluator.</exception>
+        </member>
+        <member name="P:AgentsPoker.Core.HandEvaluator.EquivalenceClassCount">
+            <summary>Number of distinct 5-card hand classes (7462).</summary>
+        </member>
+        <member name="T:AgentsPoker.Core.HandEvaluator.ClassTable">
+            <summary>Lazily built sorted (ascending) list of every distinct value a 5..7 card hand can produce.</summary>
+        </member>
+    </members>
+</doc>

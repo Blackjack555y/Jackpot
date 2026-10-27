@@ -1,0 +1,16 @@
+<Project>
+  <!-- Referencia al motor AgentsPoker.Core, compartida por Agents/, Entrenamiento/ y tools/AgentsPoker.Sim.
+       Repo del desarrollador (existe src/): se compila el proyecto fuente.
+       Paquete de estudiantes (no hay src/): se usa la DLL entregada en lib/ (la misma que usa la Arena de Unity). -->
+  <PropertyGroup>
+    <AgentsPokerCoreProject>$(MSBuildThisFileDirectory)src/AgentsPoker.Core/AgentsPoker.Core.csproj</AgentsPokerCoreProject>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(AgentsPokerCoreProject)')">
+    <ProjectReference Include="$(AgentsPokerCoreProject)" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('$(AgentsPokerCoreProject)')">
+    <Reference Include="AgentsPoker.Core">
+      <HintPath>$(MSBuildThisFileDirectory)lib/AgentsPoker.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

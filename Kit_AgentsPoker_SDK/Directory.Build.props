@@ -1,0 +1,7 @@
+<Project>
+  <!-- Isolates the SDK from the Unity project's build (Unity ignores this folder: it lives outside Assets/). -->
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

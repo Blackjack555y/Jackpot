@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Proyecto de los agentes (para el editor: IntelliSense, errores en rojo, depurar desde Entrenamiento/).
+       Mismas reglas que la Arena de Unity: C# 9 y solo la API de .NET Standard 2.1.
+       Compila todos los .cs de ESTA carpeta (no las subcarpetas: guarda versiones viejas en una subcarpeta).
+       No hace falta para el workbench ni para la entrega: el workbench compila cada .cs por separado. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>Agentes</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+  </ItemGroup>
+  <Import Project="..\AgentsPoker.Core.props" />
+</Project>
