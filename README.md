@@ -1,14 +1,19 @@
-# jackpot — agente de Limit Hold'em (Proyecto Final Fundamentos)
+# jackpot — guía del equipo: cómo levantar, probar y entrenar el agente
 
-Repositorio del equipo para desarrollar, probar y entrenar el agente **`jackpot`** con el kit **AgentsPoker SDK v0.3.0**.
+Repositorio del equipo para desarrollar, probar y entrenar el agente **`jackpot`** (Limit Hold'em, Proyecto Final Fundamentos)
+con el kit **AgentsPoker SDK v0.3.0**.
 El nombre `jackpot` está registrado en el formulario del curso y **no se puede cambiar**: la clase y el archivo deben llamarse así.
 
-| Qué | Dónde |
-|---|---|
-| Agente que se entrega (Entrega 2) | `Kit_AgentsPoker_SDK/Agents/jackpot.cs` |
-| Plantilla del informe (Entrega 1) | `INFORME_ENTREGA1_plantilla.md` |
-| Reglas y entregas del curso | `INSTRUCTIVO_ENTREGAS.md`, `REGLAS_POKER.md`, `PREGUNTAS_FRECUENTES.md` |
-| Documentación del kit | `Kit_AgentsPoker_SDK/LEEME.md`, `GUIA_AGENTES.md`, `REGLAS.md` |
+**Este archivo es el nuestro** (lo mantenemos nosotros). Los demás documentos son del curso o del kit y no se editan:
+
+| Documento | De quién | Para qué |
+|---|---|---|
+| `README.md` (este) | Equipo | Levantar el kit, probar y comparar agentes, estado del entrenamiento |
+| `INFORME_ENTREGA1_plantilla.md` | Equipo | Borrador del informe (Entrega 1) con los datos medidos |
+| `Kit_AgentsPoker_SDK/Agents/jackpot.cs` | Equipo | **El agente que se entrega** (Entrega 2) |
+| `CURSO_LEEME.txt` | Profesor | Índice original de la carpeta del curso (menciona PDFs y un .zip que no subimos: los .md tienen lo mismo) |
+| `INSTRUCTIVO_ENTREGAS.md`, `REGLAS_POKER.md`, `PREGUNTAS_FRECUENTES.md`, `CONTENIDO_CARPETA.md` | Profesor | Entregas, reglas del juego, preguntas frecuentes, mapa de la carpeta |
+| `Kit_AgentsPoker_SDK/LEEME.md`, `GUIA_AGENTES.md`, `REGLAS.md` | Kit | Documentación oficial del SDK, API y reglas finas |
 
 Fechas y medio de entrega: **[a definir por el profesor]**.
 
