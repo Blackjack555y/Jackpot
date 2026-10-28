@@ -13,7 +13,9 @@ using AgentsPoker.Core;
 /// Compara la equity con las pot odds (CALL/FOLD) y con un umbral que depende del número de rivales (RAISE),
 /// hace apuestas de continuación selectivas y ajusta el riesgo al final de la mesa según el puesto (top N clasifica).
 /// Híbrido: la acción de la v1 solo se reemplaza cuando la tabla Q (estado agrupado) tiene evidencia fuerte
-/// de que otra acción rinde más en ese estado. Con la tabla vacía juega exactamente como la v1.
+/// de que otra acción CLASIFICA más en ese estado. Con la tabla vacía juega exactamente como la v1.
+/// Q(s,a) = probabilidad de clasificar si en s se juega a y el resto de la mesa se sigue jugando como la política base
+/// (mejora de política sobre la v1, aprendida por self-play con exploración UCB en el laboratorio).
 /// </summary>
 public sealed class jackpot_q : IPokerAgent, IHandObserver
 {
@@ -32,8 +34,8 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
     private const int ManosPorMesa = 30;            // valor por defecto del torneo (el árbitro puede cambiarlo)
     private const int Clasificados = 3;
 
-    // ---- Tabla Q agrupada: calle(4) x equity(8) x pot odds(4) x apuestas(3) x rivales(3) x posición(2) ----
-    public const int NumEstados = 4 * 8 * 4 * 3 * 3 * 2;    // 2304
+    // ---- Tabla Q agrupada: calle(4) x margen equity-precio(6) x apuestas(3) x rivales(3) x clasificación(3) x fase(2) ----
+    public const int NumEstados = 4 * 6 * 3 * 3 * 3 * 2;    // 1296
     public const int NumAcciones = 3;                      // 0 = FOLD, 1 = CALL, 2 = RAISE
 
     /// <summary>
@@ -47,21 +49,14 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
     private readonly Dictionary<string, Perfil> _rivales = new Dictionary<string, Perfil>();
     private readonly sbyte[] _correccion;
 
-    // Modo aprendiz (solo laboratorio): explora con UCB sobre la tabla compartida y anota sus decisiones.
+    // Modo aprendiz (solo laboratorio): juega como la base y, en algunas decisiones de prueba, explora con UCB.
     private readonly float[] _q;
     private readonly int[] _n;
     private readonly double _cUcb;
-    private readonly List<(int Estado, int Accion, int Legales)> _manoActual = new List<(int, int, int)>();
+    private readonly double _probPrueba;
 
-    /// <summary>Transición para Q-learning: estado, acción, recompensa, estado siguiente (-1 = fin) y sus acciones legales.</summary>
-    public struct Transicion
-    {
-        public int Estado, Accion, Siguiente, LegalesSiguiente;
-        public float Recompensa;
-    }
-
-    /// <summary>Transiciones generadas en modo aprendiz (las recoge el laboratorio al terminar la mesa).</summary>
-    public List<Transicion> Transiciones { get; } = new List<Transicion>();
+    /// <summary>Decisiones de prueba (estado, acción) de esta mesa; su recompensa es si el asiento clasificó.</summary>
+    public List<(int Estado, int Accion)> Pruebas { get; } = new List<(int, int)>();
 
     /// <summary>Estadísticas de un rival, acumuladas durante la mesa (clave: nombre).</summary>
     private sealed class Perfil
@@ -92,14 +87,18 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
         CalcularPercentiles();
     }
 
-    /// <summary>Aprendiz (laboratorio): lee la tabla compartida q/n, explora con UCB y anota transiciones.</summary>
-    public jackpot_q(float[] q, int[] n, double cUcb, int semilla)
+    /// <summary>
+    /// Aprendiz (laboratorio): juega con la política base (v1 + corrección base) y, con probabilidad probPrueba en cada
+    /// decisión, elige con UCB sobre la tabla compartida q/n y lo anota en Pruebas.
+    /// </summary>
+    public jackpot_q(sbyte[] correccionBase, float[] q, int[] n, double cUcb, double probPrueba, int semilla)
+        : this(correccionBase)
     {
+        _probPrueba = probPrueba;
         _q = q;
         _n = n;
         _cUcb = cUcb;
         _rng = new Random(semilla);
-        CalcularPercentiles();
     }
 
     public void Initialize(string agentName) { }
@@ -124,10 +123,10 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
         int legales = Legales(o);
         int estado = Estado(o, equity);
 
-        if (_q != null)
+        if (_q != null && _rng.NextDouble() < _probPrueba)
         {
             int a = ElegirUcb(estado, legales);
-            _manoActual.Add((estado, a, legales));
+            Pruebas.Add((estado, a));
             return AAccion(a);
         }
 
@@ -167,23 +166,49 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
 
     // ---------------------------------------------------------------- tabla Q (estado agrupado, UCB, corrección)
 
-    /// <summary>Índice del estado agrupado (pocas casillas a propósito: generaliza mejor).</summary>
+    /// <summary>
+    /// Índice del estado agrupado. Las casillas separan lo que decide la v1 (equity frente al precio) y lo que decide
+    /// la clasificación (situación en la tabla de stacks y manos que quedan), con pocas filas para que generalice.
+    /// </summary>
     private static int Estado(PlayerObservation o, double equity)
     {
         int calle = o.Street == Street.Preflop ? 0 : o.Street == Street.Flop ? 1 : o.Street == Street.Turn ? 2 : 3;
-        int eq = Math.Min(7, Math.Max(0, (int)(equity * 8)));
-        int po = o.ToCall == 0 ? 0 : o.PotOdds < 0.2 ? 1 : o.PotOdds < 0.33 ? 2 : 3;
-        int apuestas = Math.Min(2, Math.Max(0, o.BetsThisStreet));
         int rivales = 0;
         foreach (var p in o.Players)
         {
             if (p.Seat != o.Seat && p.IsActive) rivales++;
         }
-        rivales = Math.Min(3, Math.Max(1, rivales)) - 1;
-        int n = Math.Max(2, o.Players.Count);
-        int distancia = ((o.Seat - o.ButtonSeat) % n + n) % n;
-        int tarde = distancia == 0 || distancia == n - 1 ? 1 : 0;   // botón o cutoff
-        return ((((calle * 8 + eq) * 4 + po) * 3 + apuestas) * 3 + rivales) * 2 + tarde;
+        rivales = Math.Min(3, Math.Max(1, rivales));
+        double precio = o.ToCall > 0 ? o.PotOdds : 1.0 / (rivales + 1);    // pot odds, o parte justa si el check es gratis
+        double m = equity - precio;
+        int margen = m < -0.15 ? 0 : m < -0.05 ? 1 : m < 0.05 ? 2 : m < 0.15 ? 3 : m < 0.30 ? 4 : 5;
+        int apuestas = Math.Min(2, Math.Max(0, o.BetsThisStreet));
+        int fase = ManosPorMesa - o.HandNumber > 10 ? 0 : 1;
+        return ((((calle * 6 + margen) * 3 + apuestas) * 3 + (rivales - 1)) * 3 + SituacionClasificacion(o)) * 2 + fase;
+    }
+
+    /// <summary>0 = dentro de la zona de clasificación con holgura, 1 = en la burbuja, 2 = fuera (por stacks).</summary>
+    private static int SituacionClasificacion(PlayerObservation o)
+    {
+        int miStack = o.MyStack + o.MyCommittedThisHand;
+        int vivos = 0, mejores = 0;
+        var otros = new List<int>();
+        foreach (var p in o.Players)
+        {
+            int s = p.Stack + p.CommittedThisHand;
+            if (s <= 0) continue;
+            vivos++;
+            if (p.Seat == o.Seat) continue;
+            otros.Add(s);
+            if (s > miStack) mejores++;
+        }
+        int clasifican = Math.Min(Clasificados, vivos - 1);
+        if (clasifican <= 0) return 0;
+        if (mejores >= clasifican) return 2;
+        otros.Sort();
+        otros.Reverse();
+        int fuera = otros.Count > clasifican - 1 ? otros[clasifican - 1] : 0;
+        return miStack - fuera > 400 ? 0 : 1;
     }
 
     private static int Legales(PlayerObservation o)
@@ -216,46 +241,38 @@ public sealed class jackpot_q : IPokerAgent, IHandObserver
     }
 
     /// <summary>
-    /// Modo aprendiz: el laboratorio avisa la recompensa de la mano (fichas netas en ciegas grandes; suma cero en la mesa)
-    /// y se generan las transiciones de Q-learning de esa mano.
+    /// Construye la tabla de corrección sobre la base: en cada (estado, acción base v) se cambia a la acción a de mayor
+    /// Q solo si el límite inferior de la ventaja es positivo: Q(s,a) - Q(s,v) - z·error > 0 (Q = prob. de clasificar).
     /// </summary>
-    public void FinDeMano(double recompensaBb)
+    public static sbyte[] ConstruirCorreccion(float[] q, int[] n, sbyte[] correccionBase, int nMin, double z)
     {
-        for (int i = 0; i < _manoActual.Count; i++)
-        {
-            bool ultima = i == _manoActual.Count - 1;
-            Transiciones.Add(new Transicion
-            {
-                Estado = _manoActual[i].Estado,
-                Accion = _manoActual[i].Accion,
-                Recompensa = ultima ? (float)recompensaBb : 0f,
-                Siguiente = ultima ? -1 : _manoActual[i + 1].Estado,
-                LegalesSiguiente = ultima ? 0 : _manoActual[i + 1].Legales,
-            });
-        }
-        _manoActual.Clear();
-    }
-
-    /// <summary>
-    /// Construye la tabla de corrección: en cada estado, la acción de la v1 se reemplaza por la de mayor Q solo si
-    /// ambas tienen al menos nMin visitas y la diferencia supera el margen (en ciegas grandes).
-    /// </summary>
-    public static sbyte[] ConstruirCorreccion(float[] q, int[] n, int nMin, double margenBb)
-    {
+        bool hayBase = correccionBase != null && correccionBase.Length == NumEstados * NumAcciones;
         var c = new sbyte[NumEstados * NumAcciones];
         for (int s = 0; s < NumEstados; s++)
         {
             int b = s * NumAcciones;
-            int mejor = -1;
-            for (int a = 0; a < NumAcciones; a++)
-                if (n[b + a] >= nMin && (mejor < 0 || q[b + a] > q[b + mejor])) mejor = a;
-            for (int v = 0; v < NumAcciones; v++)
+            for (int v1 = 0; v1 < NumAcciones; v1++)
             {
-                bool cambia = mejor >= 0 && mejor != v && n[b + v] >= nMin && q[b + mejor] - q[b + v] > margenBb;
-                c[b + v] = (sbyte)(cambia ? mejor : -1);
+                int v = hayBase && correccionBase[b + v1] >= 0 ? correccionBase[b + v1] : v1;   // acción de la base
+                int mejor = v;
+                double mejorLi = 0;
+                for (int a = 0; a < NumAcciones; a++)
+                {
+                    if (a == v || n[b + a] < nMin || n[b + v] < nMin) continue;
+                    double li = q[b + a] - q[b + v] - z * Math.Sqrt(Varianza(q[b + a], n[b + a]) + Varianza(q[b + v], n[b + v]));
+                    if (li > mejorLi) { mejorLi = li; mejor = a; }
+                }
+                c[b + v1] = (sbyte)(mejor != v1 ? mejor : -1);
             }
         }
         return c;
+    }
+
+    /// <summary>Varianza del promedio de una recompensa 0/1 (con suavizado para no dar 0 con pocos datos).</summary>
+    private static double Varianza(double p, int n)
+    {
+        double ps = (p * n + 1) / (n + 2.0);
+        return ps * (1 - ps) / n;
     }
 
     // ---------------------------------------------------------------- modelado de rivales

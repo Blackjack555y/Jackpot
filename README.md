@@ -99,18 +99,24 @@ El laboratorio **no se entrega**: puede usar hilos, archivos, etc. Está en `Ent
 `Agents/jackpot_q.cs` es la v1 más una **tabla de corrección** aprendida jugando contra sí mismo (clase 11).
 Con la tabla vacía juega exactamente igual que la v1. No se entrega mientras no supere a la v1.
 
-**Cómo aprende (en simple):**
+**Cómo aprende (versión 2, tras la retroalimentación del profesor):**
 - **Un solo cerebro.** Una tabla Q compartida juega en 1 a 3 asientos de cada mesa.
 - **Rivales mezclados.** Esos asientos juegan contra el **salón de la fama** (campeones anteriores congelados) y contra
   **anclas fijas** (Heuristic ×2, Rival, Station, Raiser, Random, MiAgente y jackpot_v1).
-- **Recompensa.** Son las fichas netas de cada mano en ciegas grandes. Lo que gana uno lo pierden otros, así que la
-  recompensa es de **suma cero**.
-- **Estado.** Se agrupa en calle × equity (8 rangos) × pot odds × apuestas × rivales × posición, que da 2.304 estados.
-  Las acciones son FOLD, CALL y RAISE.
-- **Exploración y aprendizaje.** Explora con **UCB**: prueba lo incierto o lo prometedor, no al azar. Aprende con
-  **Q-learning** usando α = 1/N.
-- **Corrección de la v1.** La tabla solo cambia la acción de la v1 cuando el estado tiene ≥ 30 visitas y otra
-  acción rinde más de 0,3 ciegas grandes.
+- **Mejora de política sobre la v1.** Los aprendices juegan como la **base** (la v1, o el último campeón). Solo en
+  algunas decisiones de prueba (≈ una por mano) eligen con **UCB1** entre FOLD, CALL y RAISE.
+- **Recompensa = clasificar.** Cada prueba recibe 1 si ese asiento clasificó al final de la mesa y 0 si no.
+  Q(s,a) es la probabilidad de clasificar haciendo a en s y siguiendo con la base. Se aprende con α = 1/N.
+- **Estado.** Son 1.296 estados: calle × margen (equity − precio, 6 rangos) × apuestas × rivales × situación de
+  clasificación (holgado, burbuja o fuera) × fase de la mesa. Así no se mezclan en una fila situaciones que la v1 o
+  la clasificación tratan distinto.
+- **Corrección solo con evidencia.** La acción de la base se cambia solo si el **límite inferior** de la ventaja es
+  positivo: Q(s,a) − Q(s,v) − 2,5·error > 0, con al menos 30 visitas por acción.
+- **Se mejora a sí mismo por pasos.** Cuando un campeón pasa la puerta, se vuelve la base y la tabla Q se reinicia.
+- **Por qué cambió.** La versión 1 de este método (5.000 mesas, recompensa en fichas, explorador jugando toda la mano)
+  no dio campeón. Está en `Entrenamiento/liga/historial.csv` y en la sección 5.
+- **Limitación conocida.** Q-learning asume un MDP, pero el póker es un POMDP (cartas ocultas). Si este método no
+  mejora a la v1, el siguiente paso es CFR.
 
 **Cómo evita el sobreajuste:**
 1. Las mesas son mixtas: siempre hay anclas y campeones anteriores.
@@ -127,12 +133,12 @@ Con la tabla vacía juega exactamente igual que la v1. No se entrega mientras no
 
 - **Meseta (parada automática):** 6 puertas seguidas sin nuevo campeón **y** validación plana en las últimas
   10 tandas (la pendiente con su ± incluye el 0).
-- **Detener sin perder nada:** crear el archivo `Entrenamiento/liga/STOP`. Termina la tanda en curso y se detiene.
+- **Detener sin perder nada:** crear el archivo `Entrenamiento/liga2/STOP`. Termina la tanda en curso y se detiene.
   Ctrl+C corta al instante y pierde solo la tanda en curso.
-- **Retomar:** relanzar el mismo comando. El estado se guarda en `Entrenamiento/liga/estado.bin` después de cada tanda.
+- **Retomar:** relanzar el mismo comando. El estado se guarda en `Entrenamiento/liga2/estado.bin` después de cada tanda.
 - **Resultados:**
-  - `Entrenamiento/liga/historial.csv` tiene una fila por tanda.
-  - `Entrenamiento/liga/campeon_tabla.txt` tiene la tabla del campeón, lista para pegar.
+  - `Entrenamiento/liga2/historial.csv` tiene una fila por tanda.
+  - `Entrenamiento/liga2/campeon_tabla.txt` tiene la tabla del campeón, lista para pegar.
 - **Para usarlo en otro PC:** clonar el repo, instalar .NET SDK 10, desactivar la suspensión y lanzar `selfplay infinito`.
 - **Aceptar un campeón:**
   1. pegar su tabla en `jackpot_q.cs`;

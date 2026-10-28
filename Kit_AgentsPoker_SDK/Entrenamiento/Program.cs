@@ -16,8 +16,8 @@ using AgentsPoker.Core.Agents;
 //   .\entrenar.cmd comparar 2000   jackpot vs jackpot_v1 vs MiAgente en LAS MISMAS 2000 mesas
 //   .\entrenar.cmd ajustar 1500    búsqueda de parámetros de jackpot_v2 (1500 mesas por candidato)
 //   .\entrenar.cmd selfplay 5000   autoentrenamiento de jackpot_q (Q-learning + UCB + self-play) hasta 5000 mesas
-//   .\entrenar.cmd selfplay infinito   igual, sin tope: se detiene solo al llegar a la meseta (o con liga/STOP)
-//   Opciones: --hilos N (núcleos a usar), --tanda 500, --validacion 600, --dir liga
+//   .\entrenar.cmd selfplay infinito   igual, sin tope: se detiene solo al llegar a la meseta (o con liga2/STOP)
+//   Opciones: --hilos N (núcleos a usar), --tanda 500, --validacion 600, --dir liga2
 //
 // Aquí sí se usan hilos (Parallel.For): este proyecto NO se entrega, y cada mesa crea sus propios agentes.
 // =====================================================================================================
@@ -278,19 +278,22 @@ string OpcionTexto(string nombre, string porDefecto)
 
 // ======================================= AUTOENTRENAMIENTO (self-play) =======================================
 // Un solo "cerebro" (tabla Q compartida) juega en 1-3 asientos de cada mesa contra el salón de la fama (tablas campeonas
-// anteriores congeladas) y anclas fijas (pool). La recompensa es la ganancia neta de cada mano en ciegas grandes, que
-// suma cero en la mesa. Explora con UCB, aprende con Q-learning (alfa = 1/N) y solo cambia de campeón si gana en una
-// validación separada (solo anclas, semillas que nunca se entrenan) y lo confirma en mesas nuevas (z combinado > 2).
+// anteriores congeladas) y anclas fijas (pool). Mejora de política: los aprendices juegan como la base (v1 + campeón
+// actual) y solo en algunas decisiones de prueba eligen con UCB; la recompensa de esas pruebas es si el asiento clasificó
+// (1/0) al final de la mesa, así que Q(s,a) = prob. de clasificar haciendo a en s y siguiendo con la base (promedio
+// incremental, alfa = 1/N). Solo cambia de campeón si gana en una validación separada (solo anclas, semillas que nunca
+// se entrenan) y lo confirma en mesas nuevas (z combinado > 2); entonces el campeón pasa a ser la base y Q se reinicia.
 void AutoEntrenar()
 {
     bool infinito = args.Length > 1 && args[1].ToLowerInvariant() == "infinito";
     int objetivo = !infinito && args.Length > 1 && int.TryParse(args[1], out var om) ? om : 5000;
     int tanda = Opcion("--tanda", 500);
     int nVal = Opcion("--validacion", 600);
-    string dir = Path.Combine("Entrenamiento", OpcionTexto("--dir", "liga"));
-    const double cUcb = 3.0;        // peso de la exploración UCB (en ciegas grandes)
-    const int nMin = 30;            // visitas mínimas para que la tabla pueda corregir a la v1
-    const double margenBb = 0.3;    // ventaja mínima (ciegas grandes) para corregir
+    string dir = Path.Combine("Entrenamiento", OpcionTexto("--dir", "liga2"));
+    double cUcb = Math.Sqrt(2);     // UCB1: recompensas entre 0 y 1
+    const double probPrueba = 0.35; // prob. de que una decisión sea de prueba (≈ una por mano)
+    const int nMin = 30;            // visitas mínimas por acción para poder corregir
+    const double zCorreccion = 2.5; // la ventaja debe superar 2,5 errores estándar (límite inferior)
     const int maxSalon = 5, paciencia = 6, ventanaMeseta = 10;
     Directory.CreateDirectory(dir);
     string archEstado = Path.Combine(dir, "estado.bin"), archHist = Path.Combine(dir, "historial.csv");
@@ -326,7 +329,7 @@ void AutoEntrenar()
                 tipos[s] = s < aprendices ? -1 : e.Salon.Count > 0 && rng.NextDouble() < 0.25 ? -2 - rng.Next(e.Salon.Count) : rng.Next(pool.Count);
             defs.Add((rng.Next(), tipos.OrderBy(_ => rng.Next()).ToArray()));
         }
-        var transiciones = new List<jackpot_q.Transicion>[tanda];
+        var pruebas = new List<(int Estado, int Accion, int Clasifico)>[tanda];
         var clasif = new int[tanda];
         var asientos = new int[tanda];
         var q = e.Q; var n = e.N;                                   // solo lectura durante la tanda
@@ -339,50 +342,49 @@ void AutoEntrenar()
             {
                 if (tipos[s] == -1)
                 {
-                    var ag = new jackpot_q(q, n, cUcb, semilla ^ (s * 7919 + 17));
+                    var ag = new jackpot_q(e.Campeon, q, n, cUcb, probPrueba, semilla ^ (s * 7919 + 17));
                     ap.Add((ag, mesa.Seat(ag, "L" + s), "L" + s));
                 }
                 else if (tipos[s] <= -2) mesa.Seat(new jackpot_q(e.Salon[-2 - tipos[s]]), "Salon" + s);
                 else mesa.Seat(pool[tipos[s]].Crear(), pool[tipos[s]].Nombre + "#" + s);
             }
             var partida = new TableMatch(mesa, handsToPlay: 30, qualifiers: Math.Min(3, tipos.Length - 1));
-            HandResult r;
-            while ((r = partida.PlayNext()) != null)
-                foreach (var a in ap) a.Agente.FinDeMano(r.Net[a.Asiento] / (double)mesa.Config.BigBlind);
+            while (partida.PlayNext() != null) { }
             var pos = partida.GetStandings();
-            var lista = new List<jackpot_q.Transicion>();
+            var lista = new List<(int, int, int)>();
             foreach (var a in ap)
             {
-                lista.AddRange(a.Agente.Transiciones);
-                if (pos.First(x => x.Name == a.Nombre).Qualifies) clasif[t]++;
+                int cl = pos.First(x => x.Name == a.Nombre).Qualifies ? 1 : 0;   // recompensa = clasificar
+                foreach (var (est, acc) in a.Agente.Pruebas) lista.Add((est, acc, cl));
+                clasif[t] += cl;
             }
-            transiciones[t] = lista;
+            pruebas[t] = lista;
             asientos[t] = ap.Count;
         });
 
-        // ---- 2. Q-learning: aplicar las transiciones en orden fijo (un solo hilo, sin carreras) ----
-        foreach (var lista in transiciones)
-            foreach (var tr in lista)
+        // ---- 2. Actualizar Q con el promedio incremental, en orden fijo (un solo hilo, sin carreras) ----
+        // El resto de la mesa lo juega la base (política fija), así que la meta es la recompensa final: no hace falta max Q.
+        foreach (var lista in pruebas)
+            foreach (var (est, acc, cl) in lista)
             {
-                double meta = tr.Recompensa;
-                if (tr.Siguiente >= 0) meta += MaxQ(e.Q, e.N, tr.Siguiente, tr.LegalesSiguiente);
-                int i = tr.Estado * jackpot_q.NumAcciones + tr.Accion;
+                int i = est * jackpot_q.NumAcciones + acc;
                 e.N[i]++;
-                e.Q[i] += (float)((meta - e.Q[i]) / e.N[i]);
+                e.Q[i] += (cl - e.Q[i]) / e.N[i];
             }
         e.Tandas++;
         e.Mesas += tanda;
         double clasifEntreno = clasif.Sum() / (double)Math.Max(1, asientos.Sum());
 
         // ---- 3. Validación y puerta de campeón ----
-        var cand = jackpot_q.ConstruirCorreccion(e.Q, e.N, nMin, margenBb);
+        var cand = jackpot_q.ConstruirCorreccion(e.Q, e.N, e.Campeon, nMin, zCorreccion);
         int correcciones = cand.Count(x => x >= 0);
+        bool distinto = e.Campeon == null ? correcciones > 0 : !cand.SequenceEqual(e.Campeon);
         int[] valCand = Evaluar(() => new jackpot_q(cand), valMesas).Clasif;
         var (d1, se1) = DifPareada(valCand, valCampeon);
         e.HistVal.Add(valCand.Average());
         double z = 0;
         bool aceptado = false;
-        if (correcciones > 0 && d1 > 0 && d1 > se1)
+        if (distinto && d1 > 0 && d1 > se1)
         {
             var conf = GenerarMesas(nVal, 5_000_000 + 1009 * e.Tandas);      // mesas nuevas en cada confirmación
             var (d2, se2) = DifPareada(Evaluar(() => new jackpot_q(cand), conf).Clasif, Evaluar(() => new jackpot_q(e.Campeon), conf).Clasif);
@@ -396,6 +398,7 @@ void AutoEntrenar()
                 if (e.Salon.Count > maxSalon) e.Salon.RemoveAt(0);
                 valCampeon = valCand;
                 EscribirCampeon(archCampeon, cand, e);
+                Array.Clear(e.Q); Array.Clear(e.N);       // los valores eran de la base anterior: se vuelve a medir
             }
         }
         e.SinMejora = aceptado ? 0 : e.SinMejora + 1;
@@ -428,17 +431,6 @@ void AutoEntrenar()
         : $"Campeón guardado en {archCampeon}. Verifícalo con 'comparar' antes de pegarlo en jackpot.cs.");
 }
 
-static double MaxQ(float[] q, int[] n, int estado, int legales)
-{
-    double mejor = double.NegativeInfinity;
-    for (int a = 0; a < jackpot_q.NumAcciones; a++)
-    {
-        int i = estado * jackpot_q.NumAcciones + a;
-        if ((legales & (1 << a)) != 0 && n[i] > 0 && q[i] > mejor) mejor = q[i];
-    }
-    return double.IsNegativeInfinity(mejor) ? 0 : mejor;
-}
-
 static (double, double) Pendiente(double[] y)
 {
     int k = y.Length;
@@ -469,7 +461,7 @@ sealed class EstadoLiga
     public int[] N = new int[jackpot_q.NumEstados * jackpot_q.NumAcciones];
     public int Tandas, SinMejora;
     public long Mesas;
-    public sbyte[] Campeon;                       // null = v1
+    public sbyte[] Campeon;                       // null = v1; también es la base de los aprendices
     public List<sbyte[]> Salon = new List<sbyte[]>();
     public List<double> HistVal = new List<double>();
 
@@ -478,7 +470,7 @@ sealed class EstadoLiga
         string tmp = archivo + ".tmp";
         using (var w = new BinaryWriter(File.Create(tmp)))
         {
-            w.Write(1); w.Write(Tandas); w.Write(SinMejora); w.Write(Mesas);
+            w.Write(2); w.Write(Tandas); w.Write(SinMejora); w.Write(Mesas);
             foreach (var v in Q) w.Write(v);
             foreach (var v in N) w.Write(v);
             EscribirTabla(w, Campeon);
@@ -492,7 +484,7 @@ sealed class EstadoLiga
     {
         var e = new EstadoLiga();
         using var r = new BinaryReader(File.OpenRead(archivo));
-        if (r.ReadInt32() != 1) throw new InvalidDataException("Versión de estado desconocida");
+        if (r.ReadInt32() != 2) throw new InvalidDataException("Versión de estado desconocida");
         e.Tandas = r.ReadInt32(); e.SinMejora = r.ReadInt32(); e.Mesas = r.ReadInt64();
         for (int i = 0; i < e.Q.Length; i++) e.Q[i] = r.ReadSingle();
         for (int i = 0; i < e.N.Length; i++) e.N[i] = r.ReadInt32();
