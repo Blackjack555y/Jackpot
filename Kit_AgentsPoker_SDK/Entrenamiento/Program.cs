@@ -45,7 +45,9 @@ var pool = new List<(string Nombre, Func<IPokerAgent> Crear)>
     ("jackpot_v1", () => new jackpot_v1()),
 };
 int nBase = pool.Count;                       // las mesas se sortean solo entre estos (validaciones viejas intactas)
-pool.Add(("FI", () => new FI()));             // agente del compañero: solo entra si se pide con --con-fi
+// Agente del compañero (Agents/FI.cs, no está en el repo): se carga por nombre para que compile sin él.
+var tipoFI = typeof(jackpot).Assembly.GetType("FI");
+pool.Add(("FI", () => (IPokerAgent)Activator.CreateInstance(tipoFI ?? throw new InvalidOperationException("Falta Agents/FI.cs (pídelo al compañero)"))));
 int iFI = pool.Count - 1;
 bool conFI = args.Contains("--con-fi");
 
@@ -73,7 +75,7 @@ if (modo == "comparar")
         ("MiAgente", () => new MiAgente()),
         ("Rival", () => new Rival()),
         ("Heuristic", () => new SimpleHeuristicAgent()),
-        ("FI", () => new FI()),
+        ("FI", pool[iFI].Crear),
     };
     Console.WriteLine($"Comparación en las MISMAS {mesas} mesas (tamaños 3, 4 y 6; rivales al azar del pool{(conFI ? "; 1 FI en cada mesa" : "")})\n");
     Console.WriteLine($"{"Agente",-12} {"Clasif%",8} {"±",6} {"Gana%",7} {"Puesto",7} {"Stack",8}");
