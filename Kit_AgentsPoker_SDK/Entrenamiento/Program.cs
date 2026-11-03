@@ -44,6 +44,10 @@ var pool = new List<(string Nombre, Func<IPokerAgent> Crear)>
     ("MiAgente", () => new MiAgente()),
     ("jackpot_v1", () => new jackpot_v1()),
 };
+int nBase = pool.Count;                       // las mesas se sortean solo entre estos (validaciones viejas intactas)
+pool.Add(("FI", () => new FI()));             // agente del compañero: solo entra si se pide con --con-fi
+int iFI = pool.Count - 1;
+bool conFI = args.Contains("--con-fi");
 
 string modo = args.Length > 0 ? args[0].ToLowerInvariant() : "";
 var paralelo = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Opcion("--hilos", Environment.ProcessorCount)) };
@@ -58,7 +62,7 @@ if (modo == "comparar")
 {
     int mesas = args.Length > 1 ? int.Parse(args[1]) : 1000;
     int semillaComp = args.Length > 2 ? int.Parse(args[2]) : 1000;
-    var mesasDef = GenerarMesas(mesas, semillaComp);
+    var mesasDef = GenerarMesas(mesas, semillaComp, conFI);
     var candidatos = new List<(string, Func<IPokerAgent>)>
     {
         ("jackpot", () => new jackpot()),
@@ -69,8 +73,9 @@ if (modo == "comparar")
         ("MiAgente", () => new MiAgente()),
         ("Rival", () => new Rival()),
         ("Heuristic", () => new SimpleHeuristicAgent()),
+        ("FI", () => new FI()),
     };
-    Console.WriteLine($"Comparación en las MISMAS {mesas} mesas (tamaños 3, 4 y 6; rivales al azar del pool)\n");
+    Console.WriteLine($"Comparación en las MISMAS {mesas} mesas (tamaños 3, 4 y 6; rivales al azar del pool{(conFI ? "; 1 FI en cada mesa" : "")})\n");
     Console.WriteLine($"{"Agente",-12} {"Clasif%",8} {"±",6} {"Gana%",7} {"Puesto",7} {"Stack",8}");
     int[] ref0 = null;
     foreach (var (nombre, crear) in candidatos)
@@ -211,7 +216,7 @@ return;
 
 // Una "mesa" = semilla + tamaño + rivales elegidos + asiento del candidato. Igual para todos los candidatos
 // (números aleatorios comunes): así las diferencias se deben al agente y no a las cartas.
-List<(int Semilla, int[] Rivales, int MiAsiento)> GenerarMesas(int cuantas, int semillaBase)
+List<(int Semilla, int[] Rivales, int MiAsiento)> GenerarMesas(int cuantas, int semillaBase, bool fi = false)
 {
     var rng = new Random(semillaBase);
     var lista = new List<(int, int[], int)>();
@@ -219,8 +224,9 @@ List<(int Semilla, int[] Rivales, int MiAsiento)> GenerarMesas(int cuantas, int 
     {
         double u = rng.NextDouble();
         int tam = u < 0.6 ? 6 : u < 0.8 ? 4 : 3;
-        var riv = Enumerable.Range(0, tam - 1).Select(_ => rng.Next(pool.Count)).ToArray();
+        var riv = Enumerable.Range(0, tam - 1).Select(_ => rng.Next(nBase)).ToArray();
         lista.Add((rng.Next(), riv, rng.Next(tam)));
+        if (fi) riv[0] = iFI;                                         // fuerza 1 FI por mesa (mismas cartas y asientos)
     }
     return lista;
 }
@@ -307,8 +313,11 @@ void AutoEntrenar()
                       $" | tanda {tanda} | validación {nVal} | {paralelo.MaxDegreeOfParallelism} hilos | carpeta {dir}");
     if (e.Tandas > 0) Console.WriteLine($"Retomando: {e.Tandas} tandas, {e.Mesas} mesas, salón de la fama {e.Salon.Count}, campeón {(e.Campeon == null ? "v1" : "tabla")}");
 
-    var valMesas = GenerarMesas(nVal, 777_777);                 // validación fija: nunca se usa para entrenar
+    var valMesas = GenerarMesas(nVal, conFI ? 888_888 : 777_777, conFI);   // validación fija (A): nunca se usa para entrenar
     int[] valCampeon = Evaluar(() => new jackpot_q(e.Campeon), valMesas).Clasif;
+    // Con --con-fi: A = mesas con FI; B = las de siempre sin FI. Un campeón no puede empeorar en B (anti-sobreajuste).
+    var valMesasB = conFI ? GenerarMesas(nVal, 777_777) : null;
+    int[] valCampeonB = conFI ? Evaluar(() => new jackpot_q(e.Campeon), valMesasB).Clasif : null;
     var reloj = Stopwatch.StartNew();
 
     while (true)
@@ -326,7 +335,8 @@ void AutoEntrenar()
             int aprendices = rng.Next(1, Math.Min(3, tam - 1) + 1);
             var tipos = new int[tam];                                // -1 aprendiz, -2-k salón k, >= 0 ancla del pool
             for (int s = 0; s < tam; s++)
-                tipos[s] = s < aprendices ? -1 : e.Salon.Count > 0 && rng.NextDouble() < 0.25 ? -2 - rng.Next(e.Salon.Count) : rng.Next(pool.Count);
+                tipos[s] = s < aprendices ? -1 : e.Salon.Count > 0 && rng.NextDouble() < 0.25 ? -2 - rng.Next(e.Salon.Count) : rng.Next(nBase);
+            if (conFI && rng.NextDouble() < 0.4) tipos[tam - 1] = iFI;  // FI en el 40 % de las mesas: no sobreajustarse a él
             defs.Add((rng.Next(), tipos.OrderBy(_ => rng.Next()).ToArray()));
         }
         var pruebas = new List<(int Estado, int Accion, int Clasifico)>[tanda];
@@ -382,17 +392,25 @@ void AutoEntrenar()
         int[] valCand = Evaluar(() => new jackpot_q(cand), valMesas).Clasif;
         var (d1, se1) = DifPareada(valCand, valCampeon);
         e.HistVal.Add(valCand.Average());
-        double z = 0;
+        double z = 0, dB = 0;
         bool aceptado = false;
         if (distinto && d1 > 0 && d1 > se1)
         {
-            var conf = GenerarMesas(nVal, 5_000_000 + 1009 * e.Tandas);      // mesas nuevas en cada confirmación
+            var conf = GenerarMesas(nVal, 5_000_000 + 1009 * e.Tandas, conFI);      // mesas nuevas en cada confirmación
             var (d2, se2) = DifPareada(Evaluar(() => new jackpot_q(cand), conf).Clasif, Evaluar(() => new jackpot_q(e.Campeon), conf).Clasif);
             z = (d1 + d2) / Math.Sqrt(se1 * se1 + se2 * se2 + 1e-12);
             Console.WriteLine($"   confirmación: {100 * d2:+0.0;-0.0} ± {100 * 1.96 * se2:F1} pts (z combinado {z:F2})");
-            if (d2 > 0 && z > 2.0)
+            int[] valCandB = null;
+            if (conFI && d2 > 0 && z > 2.0)
+            {
+                valCandB = Evaluar(() => new jackpot_q(cand), valMesasB).Clasif;
+                dB = DifPareada(valCandB, valCampeonB).Item1;
+                Console.WriteLine($"   sin FI (B): {100 * dB:+0.0;-0.0} pts {(dB >= -0.01 ? "OK" : "EMPEORA: rechazado por sobreajuste")}");
+            }
+            if (d2 > 0 && z > 2.0 && (!conFI || dB >= -0.01))
             {
                 aceptado = true;
+                if (conFI) valCampeonB = valCandB;
                 e.Campeon = cand;
                 e.Salon.Add(cand);
                 if (e.Salon.Count > maxSalon) e.Salon.RemoveAt(0);

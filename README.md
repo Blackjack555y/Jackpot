@@ -162,6 +162,8 @@ Clasificación en las 800 mesas (semilla 900000): v3 81,9 % · v1 81,0 % · v2 7
 
 | Self-play `jackpot_q` (Q + UCB, 5.000 mesas mixtas, 77,1 min, 8 hilos) | **Ningún campeón.** Validación (600 mesas, solo anclas): candidato 59,8–62,5 % vs v1 80,0 % en las 10 tandas (≈ −18 ± 4 pts). Paró por meseta (pendiente −0,07 ± 0,18 pts/tanda). Log: `Entrenamiento/liga/historial.csv` |
 | Self-play v2 `jackpot_q` (recompensa = clasificar, mejora de política sobre la v1, 5.000 mesas, 79,1 min) | **Ningún campeón confirmado.** Validación: candidato 80,7–83,2 % vs v1 80,3 % (+0,3 a +2,8 pts, dentro del ±). Las 8 confirmaciones en mesas nuevas dieron entre −2,0 y +1,0 pts (mejor z combinado 1,86 < 2). Paró por tope de mesas, no por meseta. Log: `Entrenamiento/liga2/historial.csv` |
+| Self-play v2 con FI (agente de un compañero) en el 40 % de las mesas, doble validación con/sin FI (`--con-fi`, 3.000 mesas) | **Ningún campeón.** Validación con FI: candidato 73,0–75,3 % vs v1 74,2 % (−1,2 a +1,2 pts, dentro del ±); la única confirmación dio −1,2 pts. Log: `Entrenamiento/liga_fi/historial.csv` |
+| Comparación final pareada (mismas 4×1.000 mesas nuevas: 2 con FI, 2 sin FI; exige ganar en los 4 grupos y p < 0,01 con Holm) | **La v1 sigue siendo la mejor.** v1: 76,2 / 77,3 / 82,9 / 82,0 %. CFR (MCCFR 300k it, probado en local): −6,5 a −11,9 pts en los 4 grupos. jackpot reentrenado por el compañero: +2,7 y +1,9 con FI pero −2,5 y −3,0 sin FI (z combinado −0,31): mejora contra FI y empeora contra Station (−5,2) y Raiser (−3,5) → sobreajuste, no mejora general |
 
 **Decisión:** se entrega la v1 como `jackpot.cs` (la más simple entre las que rinden mejor).
 
