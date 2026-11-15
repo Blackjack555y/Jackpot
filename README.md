@@ -164,8 +164,13 @@ Clasificación en las 800 mesas (semilla 900000): v3 81,9 % · v1 81,0 % · v2 7
 | Self-play v2 `jackpot_q` (recompensa = clasificar, mejora de política sobre la v1, 5.000 mesas, 79,1 min) | **Ningún campeón confirmado.** Validación: candidato 80,7–83,2 % vs v1 80,3 % (+0,3 a +2,8 pts, dentro del ±). Las 8 confirmaciones en mesas nuevas dieron entre −2,0 y +1,0 pts (mejor z combinado 1,86 < 2). Paró por tope de mesas, no por meseta. Log: `Entrenamiento/liga2/historial.csv` |
 | Self-play v2 con FI (agente de un compañero) en el 40 % de las mesas, doble validación con/sin FI (`--con-fi`, 3.000 mesas) | **Ningún campeón.** Validación con FI: candidato 73,0–75,3 % vs v1 74,2 % (−1,2 a +1,2 pts, dentro del ±); la única confirmación dio −1,2 pts. Log: `Entrenamiento/liga_fi/historial.csv` |
 | Comparación final pareada (mismas 4×1.000 mesas nuevas: 2 con FI, 2 sin FI; exige ganar en los 4 grupos y p < 0,01 con Holm) | **La v1 sigue siendo la mejor.** v1: 76,2 / 77,3 / 82,9 / 82,0 %. CFR (MCCFR 300k it, probado en local): −6,5 a −11,9 pts en los 4 grupos. jackpot reentrenado por el compañero: +2,7 y +1,9 con FI pero −2,5 y −3,0 sin FI (z combinado −0,31): mejora contra FI y empeora contra Station (−5,2) y Raiser (−3,5) → sobreajuste, no mejora general |
+| Planificación online por rollouts (S&B 8.10, clase 12): la v1 + simulación del resto de la mano con determinización de cartas rivales; en mesas de 3–4 jugadores decide la v1 | 1.ª medición (rollouts en todas las mesas): +1,4 a +3,3 pts en 3 grupos pero −0,6 en A (perdía en mesas de 3–4) → no demostrado. Tras usar la v1 en mesas de 3–4, **2.ª medición con semillas nuevas** (4×1.000 mesas): v1 76,4 / 74,0 / 78,6 / 80,2 % vs **78,9 / 76,6 / 82,1 / 83,0 %**: gana en los 4 grupos (+2,5, +2,6, +3,5, +2,8), z combinado 4,68 (p = 1,4·10⁻⁶) → **mejor que v1 demostrado**. Contra FI: gana en los 4 grupos, z 7,29. Mejora contra todos los rivales (Raiser +5,0, Random +5,4, Heuristic +4,0, FI +2,6) y en mesas de 6 (+4,6). 0 decisiones > 1.000 ms (máx 458 ms) |
 
-**Decisión:** se entrega la v1 como `jackpot.cs` (la más simple entre las que rinden mejor).
+**Decisión:** se entrega la versión con rollouts como `jackpot.cs` (la v1 sigue dentro como política por defecto y como respaldo por reloj).
+
+**Bench de la versión con rollouts** (vs Heuristic×5, 100 mesas): Clasif 72,0 %, Gana 18,0 %, ms/dec 29,9, ms máx 240,7, 0 timeouts, 0 errores, `check` OK.
+
+Bench anteriores (de la v1):
 
 **Bench finales de `jackpot.cs`** (200 mesas cada uno, todos con 0 timeouts y 0 errores):
 
@@ -175,7 +180,7 @@ Clasificación en las 800 mesas (semilla 900000): v3 81,9 % · v1 81,0 % · v2 7
 | Heads-up vs Heuristic | 74,0 | 74,0 | 1,26 | 10.235 | 3,78 | 23,9 | Heuristic 26,0 % |
 | Mixta (Heuristic×2, Station, Raiser, Random) | 78,5 | 30,0 | 2,44 | 11.218 | 6,20 | 55,5 | mejor Heuristic 74,5 % (sin diferencia demostrada) |
 
-Margen aproximado con 200 mesas: ±6 pts. Checklist de entrega del kit: **cumplido** (`check` OK, 0 timeouts, 0 errores, ms máx < 300).
+Margen aproximado con 200 mesas: ±6 pts. Checklist de entrega del kit: **cumplido** (`check` OK, 0 timeouts, 0 errores, ms máx < 1.000).
 
 ---
 
