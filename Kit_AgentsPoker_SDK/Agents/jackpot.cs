@@ -365,8 +365,9 @@ public sealed class jackpot : IPokerAgent, IHandObserver
     // ---------------------------------------------------------------- planificación online (rollouts)
 
     private const int MaxAsientos = 10;
-    private const int FinRolloutsMs = 300;          // corte de las simulaciones (la v1 ya decidió antes)
+    private const int FinRolloutsMs = 200;          // corte de las simulaciones (la v1 ya decidió antes)
     private const int MaxRollouts = 4000;           // determinizaciones; cada una se juega una vez por acción
+    private const int TopeDuroMs = 250;             // nunca simular más allá de esto, aunque falten simulaciones
     private const int MinRollouts = 150;
     private const double ZCambio = 1.5;             // ventaja mínima (en errores estándar) para cambiar la acción de la v1
     private const int ManosModoClasificar = 3;      // en las últimas manos la utilidad es clasificar (1/0)
@@ -444,7 +445,7 @@ public sealed class jackpot : IPokerAgent, IHandObserver
         var tablero = new int[5];
 
         int sims = 0;
-        while (sims < MaxRollouts && (sims < MinRollouts || reloj.ElapsedMilliseconds < FinRolloutsMs))
+        while (sims < MaxRollouts && reloj.ElapsedMilliseconds < TopeDuroMs && (sims < MinRollouts || reloj.ElapsedMilliseconds < FinRolloutsMs))
         {
             // Determinización: manos de los rivales según su rango y board completo.
             int pos = 0;
@@ -479,6 +480,7 @@ public sealed class jackpot : IPokerAgent, IHandObserver
             sims++;
         }
 
+        if (sims < MinRollouts) return v1; // pocas simulaciones: no hay evidencia, decide la v1
         // La mejor acción solo reemplaza a la de la v1 si su ventaja pareada es clara.
         int mejor = iV1;
         double mejorZ = ZCambio;

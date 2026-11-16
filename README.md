@@ -168,7 +168,14 @@ Clasificación en las 800 mesas (semilla 900000): v3 81,9 % · v1 81,0 % · v2 7
 
 **Decisión:** se entrega la versión con rollouts como `jackpot.cs` (la v1 sigue dentro como política por defecto y como respaldo por reloj).
 
-**Bench de la versión con rollouts** (vs Heuristic×5, 100 mesas): Clasif 72,0 %, Gana 18,0 %, ms/dec 29,9, ms máx 240,7, 0 timeouts, 0 errores, `check` OK.
+**Bench de la versión con rollouts** (corte de simulaciones a 200 ms y tope duro de 250 ms; con menos de 150 simulaciones decide la v1), 200 mesas, `check` OK, 0 timeouts, 0 errores:
+
+| Mesa | Clasif% | Gana% | ms/dec | ms máx |
+|---|---|---|---|---|
+| vs Heuristic×5 | 70,5 | 22,0 | 27,7 | 200,4 |
+| Heads-up vs Heuristic | 72,0 | 72,0 | 4,1 | 51,6 |
+
+Tras el ajuste de tiempo, prueba rápida vs v1 (600 mesas): +1,0 ± 3,1 pts sin FI y +3,7 ± 3,1 pts con FI.
 
 Bench anteriores (de la v1):
 
