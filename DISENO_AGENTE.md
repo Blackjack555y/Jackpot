@@ -285,3 +285,74 @@ Resultados completos: `README.md`, sección 5.
   · [Alpha (PokerSkill)](https://www.pokerskill.com/poker-glossary/alpha/)
   · [Steve Zolotow, *Thoughts on Game Theory*, Card Player](https://cardplayer.com/cardplayer-poker-magazines/66418-bryn-kenney-32-19/articles/23789-thoughts-on-game-theory-part-6).
 - **Rollouts y planificación online:** Sutton y Barto, *Reinforcement Learning: An Introduction*, 2.ª ed., §8.10–8.11 (clase 12).
+
+---
+
+## Anexo B. Versión nueva del compañero y liga nocturna (2026-11-17)
+
+**Versión nueva (amigo2):** tiene el mismo código que amigo; solo cambian los 22 pesos. El compañero la entrenó contra el ecosistema
+"FI + jackpot + Random×2".
+
+**Revisión previa, con los benches del kit en las mismas semillas para los dos:**
+
+| Bench (200 mesas) | amigo | amigo2 |
+|---|---|---|
+| Contra 5 Heuristic | 71,0 % | **61,0 %** |
+| Heads-up contra Heuristic | 78,0 % | **66,5 %** |
+| Reserva de la liga (rivales nunca vistos, 800 mesas) | 67,8 % | 65,9 % |
+
+- Es una señal de sobreajuste al ecosistema de FI, pero todavía no es una prueba: falta la evaluación pareada.
+- En el log del compañero **todos** los agentes tienen 9 a 15 timeouts, incluso Random, que tarda 0 ms. Eso indica que esos timeouts
+  vienen de la máquina (12 hilos compitiendo por la CPU), no del agente. En nuestros benches, amigo2 tiene 0 timeouts.
+
+**Evaluación de amigo2** (modo `decision2`, semillas 9.900.001+): candidatos amigo2, amigo y v1. Se usa la misma regla de la
+sección 7, fijada antes de correr:
+1. gana el mejor en H;
+2. si hay empate (z > −2), decide G;
+3. el elegido no puede ser peor que amigo (z < −2) en G.
+
+**Liga nocturna** (modo `liga`, parte 4 de este documento):
+- **Pesos iniciales:** θ₀ = los de amigo, el ganador de la sección 7.
+- **Rivales:** el campeón (35 %), versiones pasadas con PFSP (35 %, empieza con v0 y amigo2), antiguas (20 %: v1, v2, FI, MiAgente
+  y Heuristic) y anclas (10 %: Station, Raiser y Random).
+- **Puerta de ascenso:**
+  - z > 2 en 400 mesas pareadas;
+  - z > 2 en 600 mesas nuevas;
+  - no caer más de 1 punto contra antiguas y anclas.
+- **Reserva (solo mide):** jackpot_v3, jackpot_q, Rival y jackpot_v1. 1 de cada 3 campeones queda fuera de la liga.
+- **Early stopping:** se detiene tras 3 ascensos seguidos sin mejorar la reserva, y entonces se restaura el mejor.
+- **Después:** la reserva se usó para detener, así que el veredicto final se hará con semillas nuevas y la regla de la sección 7.
+
+---
+
+## Anexo C. Conceptos de póker sin matrices: reglas con pesos entrenables
+
+Por decisión del equipo **no se implementan las matrices de 2.2 y 2.3**. Los mismos conceptos se cubren con **reglas cortas sobre lo
+que el agente ya calcula** (equity Monte Carlo, percentil de Chen, perfil de cada rival). Cada regla tiene **un peso** que se suma
+al vector θ y que entrena la liga, igual que los 22 pesos actuales. El código queda fijo y solo cambian los números.
+
+| Concepto de póker | Cómo se cubre sin matriz | Peso nuevo (lo entrena la liga) |
+|---|---|---|
+| **Selección de manos preflop** | Ya existe: el percentil de Chen frente a un umbral (el rango). Se agrega que el umbral se abra en posición tardía (botón y CO) y con menos rivales. | Apertura extra por posición |
+| **Robo de ciegas** | Si nadie entró, estamos en el botón o CO y las ciegas tienen tasa de fold alta → subir con el percentil algo peor. | Umbral de robo |
+| **Semifarol** | Detectar proyecto de color (4 del mismo palo) o de escalera abierta en flop y turn → sumar un bono a la equity para la decisión de subir. Así se aproxima el potencial (PPOT) sin calcularlo aparte. | Bono por proyecto |
+| **Farol de river con α** | En el river, sin pareja y con nadie apostando: farolear con probabilidad = peso × α, con α = apuesta / (bote + apuesta). Solo contra rivales cuya tasa de fold supere α (nunca contra calling stations). | Multiplicador de α |
+| **Defensa con MDF** | Ante apuesta en el river: si el rival casi no farolea (agresión baja), exigir más equity para pagar; si es maníaco, menos. | Ajuste de defensa por agresión |
+| **Check-raise** | Con equity muy alta en flop o turn, contra un rival agresivo y fuera de posición: pasar para subir después. | Umbral de check-raise |
+| **C-bet** | Ya existe (`DebeContinuar`). Su probabilidad y su umbral de fold ya son pesos. | (ya está) |
+
+**Por qué así:**
+- Son 6 pesos nuevos frente a cientos de celdas de una matriz, así que la liga puede ajustarlos con pocas mesas y con menos riesgo
+  de sobreajuste.
+- Cada regla se explica en una frase en la presentación y tiene base teórica (α, MDF, semifarol).
+- El valor inicial de cada peso es **neutro** (la regla apagada o casi apagada). Así la versión de partida juega igual que la actual,
+  y la liga solo los enciende si demuestran mejora en la puerta de ascenso.
+
+**Orden de trabajo:**
+1. Termina la liga de esta noche, que ajusta solo los 22 pesos actuales.
+2. Prueba final con semillas nuevas.
+3. Se agregan estas 6 reglas al mismo código, con pesos neutros, y se corre otra liga sobre los 28 pesos.
+4. Prueba final otra vez con semillas nuevas y la regla de la sección 7.
+
+> **Estado:** por la fecha de entrega, el anexo C queda como **trabajo futuro**. La versión entregada solo ajusta los 22 pesos
+> actuales con la liga (anexo B). La lógica del agente no se modifica.
