@@ -323,6 +323,83 @@ sección 7, fijada antes de correr:
 - **Early stopping:** se detiene tras 3 ascensos seguidos sin mejorar la reserva, y entonces se restaura el mejor.
 - **Después:** la reserva se usó para detener, así que el veredicto final se hará con semillas nuevas y la regla de la sección 7.
 
+### B.1 Resultado de la evaluación de amigo2 (2026-11-18)
+
+Se usaron 1000 mesas por grupo, pareadas (mismas semillas, rivales y asientos para los tres).
+
+| Agente | H1 | H2 | G1 (con FI) | G2 |
+|---|---|---|---|---|
+| amigo2 | 68,0 % | 67,3 % | 78,4 % | 80,6 % |
+| **amigo** | **69,6 %** | **71,8 %** | 76,6 % | 81,0 % |
+| v1 | 62,3 % | 64,0 % | 74,4 % | 79,3 % |
+
+| Comparación | z en H (rivales entrenados) | z en G (mezcla) |
+|---|---|---|
+| amigo2 − amigo | **−3,10** (peor, significativo) | +0,72 (empate) |
+| amigo2 − v1 | +4,19 | +2,68 |
+| amigo − v1 | +6,84 | +1,85 |
+
+**Veredicto (regla de la sección 7):**
+- Gana **amigo**.
+- amigo2 es significativamente peor contra rivales entrenados que nunca vio. Eso confirma la sospecha de sobreajuste al
+  ecosistema "FI + jackpot + Random×2" con el que se entrenó.
+- Lección para el informe: **entrenar contra pocos rivales fijos sube el número en ese ecosistema y lo baja fuera de él.** Por
+  eso la liga mezcla versiones pasadas, agentes antiguos y anclas, y mide en una reserva que nunca entrena.
+
+### B.2 Estado de la liga y prueba continua en torneos
+
+- **Primeras 3 h 15 min:** 39 rondas, **0 ascensos**.
+  - Ningún candidato pasó la primera puerta (z > 2 en 400 mesas). El mejor llegó a z = 1,83.
+  - El tamaño de paso sigma bajó a su mínimo (0,15). Ahora busca cambios pequeños alrededor de amigo.
+- **Cómo se interpreta:**
+  - La puerta hace su trabajo: un empate o un golpe de suerte no se acepta como mejora.
+  - amigo está cerca del óptimo local de esta lógica. **Cada ascenso que salga es una mejora real, no ruido.**
+- **Regla de mejora:** los pesos solo cambian si el candidato gana. Si la liga termina sin ascensos, se entrega amigo, que ya está
+  validado.
+- **Prueba continua en torneos (modo `vigilar`):**
+  - Corre en un proceso aparte con solo 2 hilos, para no cargar la PC.
+  - Cada vez que la liga saca un campeón, lo prueba en 600 mesas de torneo: 30 manos, clasifican 3, con 4 a 6 jugadores.
+  - Los rivales son solo **agentes entrenados**: FI, Rival, MiAgente, Heuristic y jackpot v1, v2, v3 y q.
+  - Usa una semilla propia (7.700.000), distinta de las de la liga.
+  - Compara de forma pareada contra amigo y contra v1, y además mide **cuánto se alejaron los pesos de los de amigo**, en "pasos"
+    de la escala de mutación.
+  - La salida queda en `LabCFR/salida/liga/torneos_campeones.txt`.
+- **Veredicto final:** el campeón que salga se compara con amigo en semillas nuevas, con la regla de la sección 7. **El ganador es
+  el que se entrega.**
+
+---
+
+## Anexo D. jackpot y FI: por qué son agentes distintos
+
+FI es el agente del compañero y jackpot es el nuestro. Los dos estarán en el torneo, así que conviene dejar claro que **no** son el
+mismo diseño. Coinciden en lo básico que hace cualquier agente razonable: Monte Carlo y estadísticas de rivales. La forma de usar
+cada pieza es diferente.
+
+| Pieza | FI (compañero) | jackpot (nuestro) |
+|---|---|---|
+| **Preflop** | Tabla fija 13×13 (169 valores escritos a mano) + "concepto de brecha", sin open-limp | Percentil de las 1326 combinaciones ordenadas con la **fórmula de Chen**; el umbral (rango) es un peso entrenable |
+| **Modelo del rival** | Belief state bayesiano: VPIP, agresión y fold con priors fijos (1,68/6, 2,56/8, 2,28/6) | VPIP, PFR, agresión y fold con priors **entrenables** (pesos 3 a 6); el rango de cada rival sale de su VPIP y de lo que hizo en la mano |
+| **Cómo se usa el rival en el Monte Carlo** | Pondera las manos simuladas por la "selectividad" del rival | **Muestreo por rechazo**: descarta manos que el rival no jugaría (fuera de rango; sin pareja si apostó), con probabilidad entrenable |
+| **Decisión postflop** | Equity + pot odds con **búsqueda de quietud** (Russell y Norvig) + equity backdoor fija (4,2 %) y luego una **red neuronal MLP 16→12→3** que corrige fold/call/raise | Regla directa: equity contra la parte justa del bote (1/(n+1)) + margen por número de apuestas para subir, y pot odds + odds implícitas para pagar. **Sin red neuronal**: cada número tiene un significado explicable |
+| **Faroles** | Los decide la red (neurona de semifarol / fold equity) | C-bet selectiva: solo si fuimos el último agresor, hay pocos rivales y esos rivales foldean más que un umbral entrenable. **Nunca contra calling stations** |
+| **Fin de mesa (top 3)** | Controlador de supervivencia desde la mano 22 (ICM simplificado) | `AjusteClasificacion`: más apretado si vamos cómodos dentro del top, más suelto si vamos fuera, según el margen con el primero que quedaría fuera |
+| **Tiempo por decisión** | ~175 ms (tope 220 ms) | Corte a 150 ms |
+| **Cómo se entrenó** | Pesos de la red con Double Q-learning + TD(λ) y self-play | **Liga contra versiones pasadas** con puerta de ascenso pareada y reserva que nunca entrena (partes 4 y 5) |
+
+**Origen del código entregable:**
+- La lógica de jackpot es la v1 de este repositorio (`jackpot_base`).
+- El compañero solo convirtió sus constantes en 22 pesos (`ParametrosBase`) y los reentrenó (amigo). La lógica no cambió.
+- La liga ajusta esos mismos 22 pesos. Por eso el agente final conserva el diseño propio de jackpot y queda alejado de FI tanto en
+  arquitectura como en entrenamiento.
+- El modo `vigilar` mide en cada campeón cuánto se alejaron sus pesos de los del compañero.
+
+**Consecuencia práctica:**
+- FI depende de una red con pesos fijos. Si un rival juega distinto a lo que vio en su self-play, la red no se adapta dentro de la
+  mesa.
+- jackpot se adapta mano a mano: el rango y el rechazo de cada rival cambian con lo que observa.
+- jackpot tampoco depende de una tabla de 169 valores escritos a mano. Su orden preflop sale de una fórmula conocida (Chen) y
+  solo el corte se entrena.
+
 ---
 
 ## Anexo C. Conceptos de póker sin matrices: reglas con pesos entrenables
