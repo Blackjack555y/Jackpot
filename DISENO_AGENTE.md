@@ -253,7 +253,7 @@ Sin redes neuronales se usan métodos de búsqueda directa, que encajan con una 
 | Q-learning + UCB por self-play | Sin campeón confirmado | El espacio de estados es enorme y 30 manos dan una señal ruidosa: mejor ajustar pocos pesos interpretables (θ). |
 | CFR (MCCFR, 300k it.) | Entre −8 y −12 pts contra la v1 | El equilibrio no explota a rivales débiles. Por eso aquí el equilibrio (α, MDF) es solo la **base** y se explota con el modelo de rivales. |
 | v1 + rollouts (simular la mano) | +3 pts contra bots explotables y **−6 pts contra agentes entrenados** | Un modelo de oponente simplista engaña al planificador. |
-| jackpot reentrenado por el compañero | El mejor contra rivales entrenados no vistos: 72 % frente a 61 % (z = 9,8) | Ajustar los pesos de una regla sólida funciona. Este diseño generaliza esa idea con la liga. |
+| jackpot reentrenado por el equipo (E1) | El mejor contra rivales entrenados no vistos: 72 % frente a 61 % (z = 9,8) | Ajustar los pesos de una regla sólida funciona. Este diseño generaliza esa idea con la liga. |
 
 **Protocolo de evaluación usado (y que se mantiene):**
 - comparación pareada en las mismas mesas;
@@ -288,32 +288,32 @@ Resultados completos: `README.md`, sección 5.
 
 ---
 
-## Anexo B. Versión nueva del compañero y liga nocturna (2026-11-17)
+## Anexo B. Segundo reentrenamiento del equipo (E2) y liga nocturna (2026-11-17)
 
-**Versión nueva (amigo2):** tiene el mismo código que amigo; solo cambian los 22 pesos. El compañero la entrenó contra el ecosistema
+**Versión nueva (E2):** tiene el mismo código que E1; solo cambian los 22 pesos. El equipo la entrenó contra el ecosistema
 "FI + jackpot + Random×2".
 
 **Revisión previa, con los benches del kit en las mismas semillas para los dos:**
 
-| Bench (200 mesas) | amigo | amigo2 |
+| Bench (200 mesas) | E1 | E2 |
 |---|---|---|
 | Contra 5 Heuristic | 71,0 % | **61,0 %** |
 | Heads-up contra Heuristic | 78,0 % | **66,5 %** |
 | Reserva de la liga (rivales nunca vistos, 800 mesas) | 67,8 % | 65,9 % |
 
 - Es una señal de sobreajuste al ecosistema de FI, pero todavía no es una prueba: falta la evaluación pareada.
-- En el log del compañero **todos** los agentes tienen 9 a 15 timeouts, incluso Random, que tarda 0 ms. Eso indica que esos timeouts
-  vienen de la máquina (12 hilos compitiendo por la CPU), no del agente. En nuestros benches, amigo2 tiene 0 timeouts.
+- En el log de ese entrenamiento **todos** los agentes tienen 9 a 15 timeouts, incluso Random, que tarda 0 ms. Eso indica que esos timeouts
+  vienen de la máquina (12 hilos compitiendo por la CPU), no del agente. En nuestros benches, E2 tiene 0 timeouts.
 
-**Evaluación de amigo2** (modo `decision2`, semillas 9.900.001+): candidatos amigo2, amigo y v1. Se usa la misma regla de la
+**Evaluación de E2** (modo `decision2`, semillas 9.900.001+): candidatos E2, E1 y v1. Se usa la misma regla de la
 sección 7, fijada antes de correr:
 1. gana el mejor en H;
 2. si hay empate (z > −2), decide G;
-3. el elegido no puede ser peor que amigo (z < −2) en G.
+3. el elegido no puede ser peor que E1 (z < −2) en G.
 
 **Liga nocturna** (modo `liga`, parte 4 de este documento):
-- **Pesos iniciales:** θ₀ = los de amigo, el ganador de la sección 7.
-- **Rivales:** el campeón (35 %), versiones pasadas con PFSP (35 %, empieza con v0 y amigo2), antiguas (20 %: v1, v2, FI, MiAgente
+- **Pesos iniciales:** θ₀ = los de E1, el ganador de la sección 7.
+- **Rivales:** el campeón (35 %), versiones pasadas con PFSP (35 %, empieza con v0 y E2), antiguas (20 %: v1, v2, FI, MiAgente
   y Heuristic) y anclas (10 %: Station, Raiser y Random).
 - **Puerta de ascenso:**
   - z > 2 en 400 mesas pareadas;
@@ -323,25 +323,25 @@ sección 7, fijada antes de correr:
 - **Early stopping:** se detiene tras 3 ascensos seguidos sin mejorar la reserva, y entonces se restaura el mejor.
 - **Después:** la reserva se usó para detener, así que el veredicto final se hará con semillas nuevas y la regla de la sección 7.
 
-### B.1 Resultado de la evaluación de amigo2 (2026-11-18)
+### B.1 Resultado de la evaluación de E2 (2026-11-18)
 
 Se usaron 1000 mesas por grupo, pareadas (mismas semillas, rivales y asientos para los tres).
 
 | Agente | H1 | H2 | G1 (con FI) | G2 |
 |---|---|---|---|---|
-| amigo2 | 68,0 % | 67,3 % | 78,4 % | 80,6 % |
-| **amigo** | **69,6 %** | **71,8 %** | 76,6 % | 81,0 % |
+| E2 | 68,0 % | 67,3 % | 78,4 % | 80,6 % |
+| **E1** | **69,6 %** | **71,8 %** | 76,6 % | 81,0 % |
 | v1 | 62,3 % | 64,0 % | 74,4 % | 79,3 % |
 
 | Comparación | z en H (rivales entrenados) | z en G (mezcla) |
 |---|---|---|
-| amigo2 − amigo | **−3,10** (peor, significativo) | +0,72 (empate) |
-| amigo2 − v1 | +4,19 | +2,68 |
-| amigo − v1 | +6,84 | +1,85 |
+| E2 − E1 | **−3,10** (peor, significativo) | +0,72 (empate) |
+| E2 − v1 | +4,19 | +2,68 |
+| E1 − v1 | +6,84 | +1,85 |
 
 **Veredicto (regla de la sección 7):**
-- Gana **amigo**.
-- amigo2 es significativamente peor contra rivales entrenados que nunca vio. Eso confirma la sospecha de sobreajuste al
+- Gana **E1**.
+- E2 es significativamente peor contra rivales entrenados que nunca vio. Eso confirma la sospecha de sobreajuste al
   ecosistema "FI + jackpot + Random×2" con el que se entrenó.
 - Lección para el informe: **entrenar contra pocos rivales fijos sube el número en ese ecosistema y lo baja fuera de él.** Por
   eso la liga mezcla versiones pasadas, agentes antiguos y anclas, y mide en una reserva que nunca entrena.
@@ -350,21 +350,21 @@ Se usaron 1000 mesas por grupo, pareadas (mismas semillas, rivales y asientos pa
 
 - **Primeras 3 h 15 min:** 39 rondas, **0 ascensos**.
   - Ningún candidato pasó la primera puerta (z > 2 en 400 mesas). El mejor llegó a z = 1,83.
-  - El tamaño de paso sigma bajó a su mínimo (0,15). Ahora busca cambios pequeños alrededor de amigo.
+  - El tamaño de paso sigma bajó a su mínimo (0,15). Ahora busca cambios pequeños alrededor de E1.
 - **Cómo se interpreta:**
   - La puerta hace su trabajo: un empate o un golpe de suerte no se acepta como mejora.
-  - amigo está cerca del óptimo local de esta lógica. **Cada ascenso que salga es una mejora real, no ruido.**
-- **Regla de mejora:** los pesos solo cambian si el candidato gana. Si la liga termina sin ascensos, se entrega amigo, que ya está
+  - E1 está cerca del óptimo local de esta lógica. **Cada ascenso que salga es una mejora real, no ruido.**
+- **Regla de mejora:** los pesos solo cambian si el candidato gana. Si la liga termina sin ascensos, se entrega E1, que ya está
   validado.
 - **Prueba continua en torneos (modo `vigilar`):**
   - Corre en un proceso aparte con solo 2 hilos, para no cargar la PC.
   - Cada vez que la liga saca un campeón, lo prueba en 600 mesas de torneo: 30 manos, clasifican 3, con 4 a 6 jugadores.
   - Los rivales son solo **agentes entrenados**: FI, Rival, MiAgente, Heuristic y jackpot v1, v2, v3 y q.
   - Usa una semilla propia (7.700.000), distinta de las de la liga.
-  - Compara de forma pareada contra amigo y contra v1, y además mide **cuánto se alejaron los pesos de los de amigo**, en "pasos"
+  - Compara de forma pareada contra E1 y contra v1, y además mide **cuánto se alejaron los pesos de los de E1**, en "pasos"
     de la escala de mutación.
   - La salida queda en `LabCFR/salida/liga/torneos_campeones.txt`.
-- **Veredicto final:** el campeón que salga se compara con amigo en semillas nuevas, con la regla de la sección 7. **El ganador es
+- **Veredicto final:** el campeón que salga se compara con E1 en semillas nuevas, con la regla de la sección 7. **El ganador es
   el que se entrega.**
 
 ### B.3 Resultado final de la liga de 8 horas y agente entregado (2026-11-18)
@@ -411,11 +411,11 @@ La versión anterior con rollouts quedó descartada: contra rivales entrenados p
 
 ## Anexo D. jackpot y FI: por qué son agentes distintos
 
-FI es el agente del compañero y jackpot es el nuestro. Los dos estarán en el torneo, así que conviene dejar claro que **no** son el
+FI y jackpot son dos agentes distintos. Los dos estarán en el torneo, así que conviene dejar claro que **no** son el
 mismo diseño. Coinciden en lo básico que hace cualquier agente razonable: Monte Carlo y estadísticas de rivales. La forma de usar
 cada pieza es diferente.
 
-| Pieza | FI (compañero) | jackpot (nuestro) |
+| Pieza | FI | jackpot |
 |---|---|---|
 | **Preflop** | Tabla fija 13×13 (169 valores escritos a mano) + "concepto de brecha", sin open-limp | Percentil de las 1326 combinaciones ordenadas con la **fórmula de Chen**; el umbral (rango) es un peso entrenable |
 | **Modelo del rival** | Belief state bayesiano: VPIP, agresión y fold con priors fijos (1,68/6, 2,56/8, 2,28/6) | VPIP, PFR, agresión y fold con priors **entrenables** (pesos 3 a 6); el rango de cada rival sale de su VPIP y de lo que hizo en la mano |
@@ -428,10 +428,10 @@ cada pieza es diferente.
 
 **Origen del código entregable:**
 - La lógica de jackpot es la v1 de este repositorio (`jackpot_base`).
-- El compañero solo convirtió sus constantes en 22 pesos (`ParametrosBase`) y los reentrenó (amigo). La lógica no cambió.
+- El equipo convirtió sus constantes en 22 pesos (`ParametrosBase`) y los reentrenó (E1). La lógica no cambió.
 - La liga ajusta esos mismos 22 pesos. Por eso el agente final conserva el diseño propio de jackpot y queda alejado de FI tanto en
   arquitectura como en entrenamiento.
-- El modo `vigilar` mide en cada campeón cuánto se alejaron sus pesos de los del compañero.
+- El modo `vigilar` mide en cada campeón cuánto se alejaron sus pesos de los de E1.
 
 **Consecuencia práctica:**
 - FI depende de una red con pesos fijos. Si un rival juega distinto a lo que vio en su self-play, la red no se adapta dentro de la
