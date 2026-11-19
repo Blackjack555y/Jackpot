@@ -45,9 +45,9 @@ var pool = new List<(string Nombre, Func<IPokerAgent> Crear)>
     ("jackpot_v1", () => new jackpot_v1()),
 };
 int nBase = pool.Count;                       // las mesas se sortean solo entre estos (validaciones viejas intactas)
-// Agente del compañero (Agents/FI.cs, no está en el repo): se carga por nombre para que compile sin él.
+// Agente del equipo (Agents/FI.cs, no está en el repo): se carga por nombre para que compile sin él.
 var tipoFI = typeof(jackpot).Assembly.GetType("FI");
-pool.Add(("FI", () => (IPokerAgent)Activator.CreateInstance(tipoFI ?? throw new InvalidOperationException("Falta Agents/FI.cs (pídelo al compañero)"))));
+pool.Add(("FI", () => (IPokerAgent)Activator.CreateInstance(tipoFI ?? throw new InvalidOperationException("Falta Agents/FI.cs (pídelo al equipo)"))));
 int iFI = pool.Count - 1;
 bool conFI = args.Contains("--con-fi");
 
