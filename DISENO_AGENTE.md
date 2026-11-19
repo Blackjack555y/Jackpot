@@ -367,6 +367,46 @@ Se usaron 1000 mesas por grupo, pareadas (mismas semillas, rivales y asientos pa
 - **Veredicto final:** el campeón que salga se compara con amigo en semillas nuevas, con la regla de la sección 7. **El ganador es
   el que se entrega.**
 
+### B.3 Resultado final de la liga de 8 horas y agente entregado (2026-11-18)
+
+**La liga:**
+- Duró 480 min: 79 rondas de 400 mesas pareadas por candidato. Hubo **0 ascensos**.
+- Solo un candidato pasó la primera puerta: la ronda 63, con +4,0 puntos y z = 2,28. En las 600 mesas nuevas de confirmación no
+  se sostuvo. Era ruido, y la puerta lo rechazó.
+- Otros 4 candidatos se acercaron (z entre 1,55 y 1,83) sin llegar a 2.
+- La reserva queda en 67,8 % y no cambió.
+- **Conclusión:** con esta lógica, θ₀ ya es un óptimo local. Ningún cambio de pesos dio una mejora confirmada, y por eso **no se
+  aceptó ninguno**. Así es como debe actuar un sistema que evita el sobreajuste.
+
+**Prueba en torneos simulados** (modo `vigilar`, 600 mesas, solo rivales entrenados, semilla 7.700.000): θ₀ clasifica **71,2 %**
+y v1 clasifica 66,8 %.
+
+**Pesos finales entregados** (`ParametrosBase` de `Agents/jackpot.cs`), iguales a θ₀:
+
+| # | Peso | Valor | # | Peso | Valor |
+|---|---|---|---|---|---|
+| 0 | Margen para apostar | −0,1970 | 11 | Ajuste de clasificación (a) | 0,2160 |
+| 1 | Margen para subir | 0,1113 | 12 | Ajuste de clasificación (b) | −0,3790 |
+| 2 | Margen por apuesta | 0,0572 | 13 | Ajuste de clasificación (c) | 400,2586 |
+| 3 | Prior VPIP | 0,3996 | 14 | Umbral de fold para c-bet | −0,2077 |
+| 4 | Prior agresión | 0,2478 | 15 | Rango (a) | 0,7452 |
+| 5 | Prior fold | −0,1242 | 16 | Rango (b) | 0,3520 |
+| 6 | Peso del prior | 8,2535 | 17 | Rango (c) | 0,4198 |
+| 7 | Probabilidad de c-bet | 0,5072 | 18 | Rango (d) | −0,2356 |
+| 8 | Odds implícitas (a) | −0,4239 | 19 | Rango (e) | 0,5116 |
+| 9 | Odds implícitas (b) | −0,0791 | 20 | Rechazo en el muestreo (a) | 0,6256 |
+| 10 | Odds implícitas (c) | −0,2715 | 21 | Rechazo en el muestreo (b) | 0,5591 |
+
+**Comprobaciones del agente entregado** (kit oficial, 200 mesas):
+
+| Prueba | Clasifica | ms/dec | ms máx | Timeouts | Errores |
+|---|---|---|---|---|---|
+| `check` | OK | — | — | — | — |
+| Contra 5 Heuristic | 66,5 % (los Heuristic: 44 a 49,5 %) | 3,95 | 36,6 | 0 | 0 |
+| Heads-up contra Heuristic | 73,0 % | 2,39 | 48,9 | 0 | 0 |
+
+La versión anterior con rollouts quedó descartada: contra rivales entrenados perdió frente a θ₀ (z 9,8 en H, sección 7).
+
 ---
 
 ## Anexo D. jackpot y FI: por qué son agentes distintos
